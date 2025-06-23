@@ -1,10 +1,10 @@
-// utils/dashboardAnalytics.ts - VERSÃO SIMPLIFICADA E ROBUSTA
+// utils/dashboardAnalytics.ts - VERSÃO CORRIGIDA COM LOGS DETALHADOS E FILTROS FUNCIONAIS
 import { supabase } from '@/lib/supabase'
 
 export interface DashboardMetrics {
   totalAtendimentos: number
   alunosUnicos: number
-  notaMediaAlunos: number
+  notaMediaAlunos: number // Nota dos alunos (0-20, menor é melhor)
   terapeutasAtivos: number
 }
 
@@ -13,10 +13,10 @@ export interface TerapeutaStats {
   nome_terapeuta: string
   total_atendimentos: number
   alunos_unicos: number
-  nota_media_alunos: number
+  nota_media_alunos: number // Nota média dos alunos atendidos
 }
 
-// 🏷️ MAPEAMENTO DOS NOMES DOS TERAPEUTAS
+// 🏷️ MAPEAMENTO DOS NOMES DOS TERAPEUTAS (baseado nos dados reais)
 const NOMES_TERAPEUTAS: Record<number, string> = {
   1: 'Júlio Lucena',
   3: 'Bia Bezerra', 
@@ -33,54 +33,141 @@ export function getNomeTerapeuta(id: number): string {
   return NOMES_TERAPEUTAS[id] || `Terapeuta ${id}`
 }
 
-// 📅 FUNÇÃO SIMPLIFICADA PARA FILTROS DE DATA
-function calcularDiasAtras(periodo: string): number | null {
+// 📊 FUNÇÃO PARA INTERPRETAR NOTA DOS ALUNOS (0-20, onde 0 é melhor)
+export function interpretarNotaAluno(nota: number): { status: string, cor: string } {
+  if (nota <= 5) return { status: 'Excelente', cor: '#10b981' } // Verde - alunos estáveis
+  if (nota <= 10) return { status: 'Bom', cor: '#fbbf24' } // Amarelo - situação média
+  if (nota <= 15) return { status: 'Atenção', cor: '#ea580c' } // Laranja - precisa atenção
+  return { status: 'Crítico', cor: '#ef4444' } // Vermelho - situação crítica
+}
+
+// 📅 FUNÇÃO AUXILIAR CORRIGIDA - FILTROS DE DATA FUNCIONANDO
+function getDataInicio(periodo: string): { inicio: string | null, fim: string | null } {
+  const hoje = new Date()
+  console.log('🔍 [Analytics] Calculando período:', periodo, 'Data atual:', hoje.toISOString())
+  
   switch (periodo) {
     case 'mes_atual':
-      return 30  // Últimos 30 dias
+      // Primeiro dia do mês atual às 00:00:00
+      const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0, 0)
+      console.log('📅 [Analytics] Mês atual - de:', inicioMesAtual.toISOString(), 'até: agora')
+      return { 
+        inicio: inicioMesAtual.toISOString(),
+        fim: null // Até agora
+      }
+      
     case 'ultimo_mes':
-      return 60  // Últimos 60 dias (para pegar mês passado)
+      // Primeiro dia do mês passado às 00:00:00
+      const inicioMesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1, 0, 0, 0, 0)
+      // Último dia do mês passado às 23:59:59
+      const fimMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 0, 23, 59, 59, 999)
+      console.log('📅 [Analytics] Último mês - de:', inicioMesPassado.toISOString(), 'até:', fimMesPassado.toISOString())
+      return { 
+        inicio: inicioMesPassado.toISOString(),
+        fim: fimMesPassado.toISOString()
+      }
+      
     case 'trimestre':
-      return 90  // Últimos 90 dias
+      // Últimos 90 dias
+      const inicioTrimestre = new Date(hoje)
+      inicioTrimestre.setDate(hoje.getDate() - 90)
+      inicioTrimestre.setHours(0, 0, 0, 0)
+      console.log('📅 [Analytics] Trimestre - de:', inicioTrimestre.toISOString(), 'até: agora')
+      return { 
+        inicio: inicioTrimestre.toISOString(),
+        fim: null
+      }
+      
     case 'semestre':
-      return 180 // Últimos 180 dias
+      // Últimos 180 dias
+      const inicioSemestre = new Date(hoje)
+      inicioSemestre.setDate(hoje.getDate() - 180)
+      inicioSemestre.setHours(0, 0, 0, 0)
+      console.log('📅 [Analytics] Semestre - de:', inicioSemestre.toISOString(), 'até: agora')
+      return { 
+        inicio: inicioSemestre.toISOString(),
+        fim: null
+      }
+      
     default:
-      return null // Todos os dados
+      console.log('📅 [Analytics] Sem filtro - todos os dados')
+      return { inicio: null, fim: null } // Retorna todos os dados
   }
 }
 
-// 🔄 FUNÇÃO PRINCIPAL SIMPLIFICADA
+// 🔧 FUNÇÃO PRINCIPAL CORRIGIDA - MÉTRICAS DO DASHBOARD
 export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promise<DashboardMetrics> {
   try {
-    console.log('🔍 Buscando métricas para período:', periodo)
+    console.log('🔍 [Analytics] Iniciando busca de métricas para período:', periodo)
     
-    const diasAtras = calcularDiasAtras(periodo)
+    // 🔧 CORREÇÃO 1: Calcular datas corretamente
+    const { inicio, fim } = getDataInicio(periodo)
     
-    // Query mais simples
+    // 🔧 CORREÇÃO 2: Query base mais robusta
     let query = supabase
-      .from('consulta')
+      .from('student_records')
       .select('*')
+      .order('data_consulta', { ascending: false })
     
-    // Aplicar filtro simples se especificado
-    if (diasAtras) {
-      const dataLimite = new Date()
-      dataLimite.setDate(dataLimite.getDate() - diasAtras)
-      const dataLimiteISO = dataLimite.toISOString().split('T')[0] // Só a data, sem horário
-      
-      console.log(`📅 Filtrando dados desde: ${dataLimiteISO} (${diasAtras} dias atrás)`)
-      query = query.gte('data_consulta', dataLimiteISO)
+    // 🔧 CORREÇÃO 3: Aplicar filtros de data corretamente
+    if (inicio) {
+      query = query.gte('data_consulta', inicio)
+      console.log('📅 [Analytics] Filtro aplicado - início:', inicio)
+    }
+    
+    if (fim) {
+      query = query.lte('data_consulta', fim)
+      console.log('📅 [Analytics] Filtro aplicado - fim:', fim)
     }
 
-    // Buscar dados com limite generoso
-    const { data: consultas, error } = await query.limit(5000) // Limite alto para garantir
-    
-    if (error) {
-      console.error('❌ Erro no Supabase:', error)
-      throw error
+    console.log('📡 [Analytics] Executando query com filtros de período...')
+
+    // 🔧 CORREÇÃO 4: Buscar todos os dados de forma eficiente
+    let allData: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
+    let attempts = 0
+    const maxAttempts = 10
+
+    while (hasMore && attempts < maxAttempts) {
+      try {
+        const { data: batch, error, count } = await query
+          .range(from, from + limit - 1)
+          .abortSignal(AbortSignal.timeout(30000)) // 30s timeout
+        
+        if (error) {
+          console.error('❌ [Analytics] Erro na query:', error)
+          throw new Error(`Erro Supabase: ${error.message}`)
+        }
+
+        if (batch && batch.length > 0) {
+          allData = [...allData, ...batch]
+          console.log(`📦 [Analytics] Lote ${attempts + 1}: ${batch.length} registros (total: ${allData.length})`)
+          
+          if (batch.length < limit) {
+            hasMore = false
+          } else {
+            from += limit
+          }
+        } else {
+          hasMore = false
+        }
+        
+        attempts++
+      } catch (batchError: any) {
+        console.error(`❌ [Analytics] Erro no lote ${attempts + 1}:`, batchError)
+        if (batchError.name === 'AbortError') {
+          throw new Error('Timeout na conexão com Supabase - tente novamente')
+        }
+        throw batchError
+      }
     }
+
+    const consultas = allData
 
     if (!consultas || consultas.length === 0) {
-      console.log('⚠️ Nenhum dado encontrado')
+      console.log('⚠️ [Analytics] Nenhum dado encontrado para o período', periodo)
       return {
         totalAtendimentos: 0,
         alunosUnicos: 0,
@@ -89,204 +176,252 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
       }
     }
 
-    console.log(`✅ Encontrados ${consultas.length} registros para ${periodo}`)
+    // 🔧 CORREÇÃO 5: Log detalhado dos dados encontrados
+    console.log('✅ [Analytics] Dados carregados:', {
+      totalRegistros: consultas.length,
+      primeiroRegistro: consultas[consultas.length - 1]?.data_consulta,
+      ultimoRegistro: consultas[0]?.data_consulta,
+      periodo: periodo
+    })
 
-    // Calcular métricas
+    // 1. Total de Atendimentos
     const totalAtendimentos = consultas.length
-    const alunosUnicos = new Set(consultas.map(c => c.aluno_id)).size
-    const terapeutasAtivos = new Set(consultas.map(c => c.terapeuta_id)).size
-    
-    // Nota média dos alunos
+
+    // 2. Alunos Únicos
+    const alunosUnicosSet = new Set(consultas.map(c => c.aluno_id).filter(id => id !== null))
+    const alunosUnicos = alunosUnicosSet.size
+
+    // 3. 🔧 CORREÇÃO 6: Nota Média dos Alunos (calculada corretamente)
     const notasValidas = consultas
       .map(c => c.nota_terapeuta)
-      .filter(nota => nota !== null && nota !== undefined && !isNaN(Number(nota)))
-      .map(nota => Number(nota))
+      .filter(nota => nota !== null && nota !== undefined && !isNaN(Number(nota)) && Number(nota) >= 0)
     
     const notaMediaAlunos = notasValidas.length > 0 
-      ? notasValidas.reduce((sum, nota) => sum + nota, 0) / notasValidas.length 
+      ? notasValidas.reduce((sum, nota) => sum + Number(nota), 0) / notasValidas.length 
       : 0
 
-    const resultado = {
+    // 4. Terapeutas Ativos
+    const terapeutasAtivosSet = new Set(consultas.map(c => c.terapeuta_id).filter(id => id !== null))
+    const terapeutasAtivos = terapeutasAtivosSet.size
+
+    const metricas = {
       totalAtendimentos,
       alunosUnicos,
       notaMediaAlunos: Math.round(notaMediaAlunos * 10) / 10,
       terapeutasAtivos
     }
 
-    console.log('📊 Métricas calculadas:', resultado)
-    return resultado
-
-  } catch (error) {
-    console.error('❌ Erro ao calcular métricas:', error)
+    console.log('📊 [Analytics] Métricas calculadas:', metricas)
     
-    // FALLBACK: retornar dados exemplo se der erro
-    return {
-      totalAtendimentos: 1714,
-      alunosUnicos: 625,
-      notaMediaAlunos: 8.4,
-      terapeutasAtivos: 8
+    // 🔧 CORREÇÃO 7: Validação adicional
+    if (metricas.totalAtendimentos === 0) {
+      console.log('⚠️ [Analytics] Nenhum atendimento encontrado - verificar filtros de data')
     }
+    
+    return metricas
+
+  } catch (error: any) {
+    console.error('❌ [Analytics] Erro crítico ao calcular métricas:', {
+      message: error.message,
+      stack: error.stack,
+      periodo: periodo
+    })
+    
+    // 🔧 CORREÇÃO 8: Throw error específico para debugging
+    throw new Error(`Falha ao carregar métricas: ${error.message}`)
   }
 }
 
-// 👥 FUNÇÃO PARA STATS DOS TERAPEUTAS (SIMPLIFICADA)
+// 🔧 FUNÇÃO CORRIGIDA - ESTATÍSTICAS POR TERAPEUTA
 export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise<TerapeutaStats[]> {
   try {
-    console.log('🔍 Buscando stats dos terapeutas para:', periodo)
+    console.log('🔍 [Analytics] Buscando stats dos terapeutas para período:', periodo)
     
-    const diasAtras = calcularDiasAtras(periodo)
+    const { inicio, fim } = getDataInicio(periodo)
     
     let query = supabase
-      .from('consulta')
+      .from('student_records')
       .select('terapeuta_id, aluno_id, nota_terapeuta, data_consulta')
+      .order('data_consulta', { ascending: false })
     
-    if (diasAtras) {
-      const dataLimite = new Date()
-      dataLimite.setDate(dataLimite.getDate() - diasAtras)
-      const dataLimiteISO = dataLimite.toISOString().split('T')[0]
-      
-      console.log(`📅 Filtrando terapeutas desde: ${dataLimiteISO}`)
-      query = query.gte('data_consulta', dataLimiteISO)
+    // Aplicar filtros de data
+    if (inicio) {
+      query = query.gte('data_consulta', inicio)
+    }
+    if (fim) {
+      query = query.lte('data_consulta', fim)
     }
 
-    const { data: consultas, error } = await query.limit(5000)
-    
-    if (error) {
-      console.error('❌ Erro ao buscar terapeutas:', error)
-      throw error
+    console.log('📡 [Analytics] Executando query para terapeutas...')
+
+    // 🔧 CORREÇÃO 9: Buscar dados com timeout e error handling
+    let allData: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
+    let attempts = 0
+
+    while (hasMore && attempts < 10) {
+      try {
+        const { data: batch, error } = await query
+          .range(from, from + limit - 1)
+          .abortSignal(AbortSignal.timeout(30000))
+        
+        if (error) {
+          console.error('❌ [Analytics] Erro na query terapeutas:', error)
+          throw new Error(`Erro Supabase terapeutas: ${error.message}`)
+        }
+
+        if (batch && batch.length > 0) {
+          allData = [...allData, ...batch]
+          if (batch.length < limit) {
+            hasMore = false
+          } else {
+            from += limit
+          }
+        } else {
+          hasMore = false
+        }
+        attempts++
+      } catch (batchError: any) {
+        console.error(`❌ [Analytics] Erro no lote terapeutas ${attempts + 1}:`, batchError)
+        throw batchError
+      }
     }
 
+    const consultas = allData
+    
     if (!consultas || consultas.length === 0) {
-      console.log('⚠️ Nenhum dado de terapeutas encontrado')
+      console.log('⚠️ [Analytics] Nenhum dado de terapeuta encontrado')
       return []
     }
 
-    console.log(`📋 Processando ${consultas.length} consultas de terapeutas`)
+    console.log('📊 [Analytics] Processando', consultas.length, 'consultas para stats dos terapeutas')
 
-    // Agrupar por terapeuta
+    // 🔧 CORREÇÃO 10: Agrupar e calcular estatísticas de forma robusta
     const terapeutasMap = new Map<number, any[]>()
     
     consultas.forEach(consulta => {
-      const id = consulta.terapeuta_id
-      if (!terapeutasMap.has(id)) {
-        terapeutasMap.set(id, [])
+      const terapeutaId = consulta.terapeuta_id
+      if (terapeutaId !== null && terapeutaId !== undefined) {
+        if (!terapeutasMap.has(terapeutaId)) {
+          terapeutasMap.set(terapeutaId, [])
+        }
+        terapeutasMap.get(terapeutaId)!.push(consulta)
       }
-      terapeutasMap.get(id)!.push(consulta)
     })
 
-    // Calcular stats
+    // Calcular estatísticas para cada terapeuta
     const terapeutasStats: TerapeutaStats[] = []
     
     terapeutasMap.forEach((atendimentos, terapeutaId) => {
-      const alunosUnicos = new Set(atendimentos.map(a => a.aluno_id)).size
+      const alunosUnicosSet = new Set(
+        atendimentos
+          .map(a => a.aluno_id)
+          .filter(id => id !== null && id !== undefined)
+      )
       
       const notasValidas = atendimentos
         .map(a => a.nota_terapeuta)
-        .filter(nota => nota !== null && !isNaN(Number(nota)))
-        .map(nota => Number(nota))
+        .filter(nota => nota !== null && !isNaN(Number(nota)) && Number(nota) >= 0)
       
-      const notaMedia = notasValidas.length > 0 
-        ? notasValidas.reduce((sum, nota) => sum + nota, 0) / notasValidas.length 
+      const notaMediaAlunos = notasValidas.length > 0 
+        ? notasValidas.reduce((sum, nota) => sum + Number(nota), 0) / notasValidas.length 
         : 0
 
-      terapeutasStats.push({
-        terapeuta_id: terapeutaId,
-        nome_terapeuta: getNomeTerapeuta(terapeutaId),
-        total_atendimentos: atendimentos.length,
-        alunos_unicos: alunosUnicos,
-        nota_media_alunos: Math.round(notaMedia * 10) / 10
-      })
+      // 🔧 CORREÇÃO 11: Só incluir terapeutas com dados válidos
+      if (atendimentos.length > 0) {
+        terapeutasStats.push({
+          terapeuta_id: terapeutaId,
+          nome_terapeuta: getNomeTerapeuta(terapeutaId),
+          total_atendimentos: atendimentos.length,
+          alunos_unicos: alunosUnicosSet.size,
+          nota_media_alunos: Math.round(notaMediaAlunos * 10) / 10
+        })
+      }
     })
 
-    // Ordenar por atendimentos
-    const resultado = terapeutasStats.sort((a, b) => b.total_atendimentos - a.total_atendimentos)
+    // Ordenar por total de atendimentos (decrescente)
+    const statsOrdenados = terapeutasStats.sort((a, b) => b.total_atendimentos - a.total_atendimentos)
     
-    console.log(`✅ Stats calculados para ${resultado.length} terapeutas`)
-    return resultado
+    console.log('📋 [Analytics] Stats calculados para', statsOrdenados.length, 'terapeutas:', 
+      statsOrdenados.map(t => ({ nome: t.nome_terapeuta, atendimentos: t.total_atendimentos })))
+    
+    return statsOrdenados
 
-  } catch (error) {
-    console.error('❌ Erro ao buscar stats dos terapeutas:', error)
+  } catch (error: any) {
+    console.error('❌ [Analytics] Erro crítico ao buscar stats dos terapeutas:', {
+      message: error.message,
+      stack: error.stack,
+      periodo: periodo
+    })
     
-    // FALLBACK: dados exemplo dos terapeutas
-    return [
-      {
-        terapeuta_id: 3,
-        nome_terapeuta: 'Bia Bezerra',
-        total_atendimentos: 69,
-        alunos_unicos: 59,
-        nota_media_alunos: 9.6
-      },
-      {
-        terapeuta_id: 6,
-        nome_terapeuta: 'Carol Gomes',
-        total_atendimentos: 32,
-        alunos_unicos: 28,
-        nota_media_alunos: 7.2
-      },
-      {
-        terapeuta_id: 5,
-        nome_terapeuta: 'Davi Belo',
-        total_atendimentos: 25,
-        alunos_unicos: 21,
-        nota_media_alunos: 11.6
-      },
-      {
-        terapeuta_id: 1,
-        nome_terapeuta: 'Júlio Lucena',
-        total_atendimentos: 23,
-        alunos_unicos: 23,
-        nota_media_alunos: 6.7
-      },
-      {
-        terapeuta_id: 7,
-        nome_terapeuta: 'Dani Matias',
-        total_atendimentos: 19,
-        alunos_unicos: 15,
-        nota_media_alunos: 7.1
-      },
-      {
-        terapeuta_id: 11,
-        nome_terapeuta: 'Maria Eduarda Costa',
-        total_atendimentos: 15,
-        alunos_unicos: 13,
-        nota_media_alunos: 2.7
-      },
-      {
-        terapeuta_id: 10,
-        nome_terapeuta: 'Olga Gomes',
-        total_atendimentos: 12,
-        alunos_unicos: 10,
-        nota_media_alunos: 4.5
-      },
-      {
-        terapeuta_id: 4,
-        nome_terapeuta: 'Bia Londres',
-        total_atendimentos: 8,
-        alunos_unicos: 7,
-        nota_media_alunos: 12.3
-      }
-    ]
+    // 🔧 CORREÇÃO 12: Throw error específico
+    throw new Error(`Falha ao carregar dados dos terapeutas: ${error.message}`)
   }
 }
 
-// 📊 FUNÇÃO PARA ANÁLISE INDIVIDUAL
+// 🔧 FUNÇÃO DE ANÁLISE INDIVIDUAL CORRIGIDA
 export async function getAnaliseIndividual(periodo: string = 'mes_atual') {
   try {
+    console.log('🔍 [Analytics] Buscando análise individual para período:', periodo)
+    
     const terapeutasStats = await getTerapeutasStats(periodo)
     
-    return terapeutasStats.map(stats => ({
+    const analise = terapeutasStats.map(stats => ({
       id: stats.terapeuta_id,
       nome: stats.nome_terapeuta,
       atendimentos: stats.total_atendimentos,
       alunosUnicos: stats.alunos_unicos,
       notaMediaAlunos: stats.nota_media_alunos,
-      status: stats.nota_media_alunos <= 5 ? 'Excelente' : 
-              stats.nota_media_alunos <= 10 ? 'Bom' : 
-              stats.nota_media_alunos <= 15 ? 'Atenção' : 'Crítico'
+      interpretacao: interpretarNotaAluno(stats.nota_media_alunos)
     }))
 
-  } catch (error) {
-    console.error('❌ Erro ao buscar análise individual:', error)
-    return []
+    console.log('📊 [Analytics] Análise individual gerada para', analise.length, 'terapeutas')
+    return analise
+
+  } catch (error: any) {
+    console.error('❌ [Analytics] Erro ao buscar análise individual:', error)
+    throw new Error(`Falha na análise individual: ${error.message}`)
+  }
+}
+
+// 🔧 FUNÇÃO DE DEBUG PARA TESTAR FILTROS
+export async function debugFiltros(): Promise<any> {
+  try {
+    console.log('🐛 [Debug] Testando todos os filtros...')
+    
+    const resultados = {
+      mesAtual: await getDashboardMetrics('mes_atual'),
+      ultimoMes: await getDashboardMetrics('ultimo_mes'),
+      trimestre: await getDashboardMetrics('trimestre'),
+      semestre: await getDashboardMetrics('semestre')
+    }
+    
+    console.log('🐛 [Debug] Resultados:', resultados)
+    
+    // Verificar se os filtros estão funcionando (números diferentes)
+    const numeros = [
+      resultados.mesAtual.totalAtendimentos,
+      resultados.ultimoMes.totalAtendimentos,
+      resultados.trimestre.totalAtendimentos,
+      resultados.semestre.totalAtendimentos
+    ]
+    
+    const numerosUnicos = [...new Set(numeros)]
+    const filtrosFuncionando = numerosUnicos.length > 1
+    
+    console.log('🐛 [Debug] Filtros funcionando:', filtrosFuncionando)
+    
+    return {
+      ...resultados,
+      filtrosFuncionando,
+      numerosUnicos: numerosUnicos.length,
+      timestamp: new Date().toISOString()
+    }
+    
+  } catch (error: any) {
+    console.error('❌ [Debug] Erro no debug:', error)
+    throw error
   }
 }

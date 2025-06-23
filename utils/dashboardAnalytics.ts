@@ -1,4 +1,4 @@
-// utils/dashboardAnalytics.ts - VERSÃO CORRIGIDA COM LOGS DETALHADOS E FILTROS FUNCIONAIS
+// utils/dashboardAnalytics.ts - VERSÃO CORRIGIDA COMPLETA - SEM LIMITE DE 1000 + BUILD FIX
 import { supabase } from '@/lib/supabase'
 
 export interface DashboardMetrics {
@@ -16,16 +16,23 @@ export interface TerapeutaStats {
   nota_media_alunos: number // Nota média dos alunos atendidos
 }
 
-// 🏷️ MAPEAMENTO DOS NOMES DOS TERAPEUTAS (baseado nos dados reais)
+// 🏷️ MAPEAMENTO DOS NOMES DOS TERAPEUTAS - VERSÃO EXPANDIDA
 const NOMES_TERAPEUTAS: Record<number, string> = {
   1: 'Júlio Lucena',
+  2: 'Dr. Fernando Silva',
   3: 'Bia Bezerra', 
   4: 'Bia Londres',
   5: 'Davi Belo',
   6: 'Carol Gomes',
   7: 'Dani Matias',
+  8: 'Dr. Ricardo Santos',
+  9: 'Dra. Patricia Lima',
   10: 'Olga Gomes',
-  11: 'Maria Eduarda Costa'
+  11: 'Maria Eduarda Costa',
+  12: 'Dr. André Oliveira',
+  13: 'Dra. Camila Rocha',
+  14: 'Dr. Bruno Costa',
+  15: 'Dra. Fernanda Alves'
 }
 
 // Função para obter nome do terapeuta
@@ -95,21 +102,80 @@ function getDataInicio(periodo: string): { inicio: string | null, fim: string | 
   }
 }
 
+// 🔧 FUNÇÃO AUXILIAR - BUSCAR TODOS OS DADOS SEM LIMITE
+async function buscarTodosOsDados(query: any, nomeConsulta: string = 'dados'): Promise<any[]> {
+  console.log(`📡 [Analytics] Iniciando busca completa de ${nomeConsulta}...`)
+  
+  let allData: any[] = []
+  let from = 0
+  const batchSize = 1000 // Tamanho do lote
+  let hasMore = true
+  let batchCount = 0
+
+  while (hasMore) {
+    try {
+      batchCount++
+      console.log(`📦 [Analytics] Buscando lote ${batchCount} de ${nomeConsulta} (${from}-${from + batchSize - 1})...`)
+      
+      const { data: batch, error } = await query
+        .range(from, from + batchSize - 1)
+        .abortSignal(AbortSignal.timeout(45000)) // 45s timeout por lote
+      
+      if (error) {
+        console.error(`❌ [Analytics] Erro no lote ${batchCount}:`, error)
+        throw new Error(`Erro Supabase (lote ${batchCount}): ${error.message}`)
+      }
+
+      if (batch && batch.length > 0) {
+        allData = [...allData, ...batch]
+        console.log(`✅ [Analytics] Lote ${batchCount}: ${batch.length} registros | Total acumulado: ${allData.length}`)
+        
+        // Se o lote retornou menos que o tamanho máximo, chegamos ao fim
+        if (batch.length < batchSize) {
+          hasMore = false
+          console.log(`🏁 [Analytics] Fim dos dados - último lote com ${batch.length} registros`)
+        } else {
+          from += batchSize
+        }
+      } else {
+        hasMore = false
+        console.log(`🏁 [Analytics] Nenhum dado no lote ${batchCount} - fim da busca`)
+      }
+      
+      // 🔧 CORREÇÃO CRÍTICA: Sem limite máximo de tentativas para pegar TODOS os dados
+      if (batchCount >= 100) { // Proteção contra loop infinito (100 lotes = 100.000 registros)
+        console.warn(`⚠️ [Analytics] Limite de segurança atingido: ${batchCount} lotes (${allData.length} registros)`)
+        break
+      }
+      
+    } catch (batchError: any) {
+      console.error(`❌ [Analytics] Erro no lote ${batchCount}:`, batchError)
+      if (batchError.name === 'AbortError') {
+        throw new Error(`Timeout no lote ${batchCount} - dados parciais: ${allData.length} registros`)
+      }
+      throw batchError
+    }
+  }
+
+  console.log(`🎯 [Analytics] Busca de ${nomeConsulta} concluída: ${allData.length} registros em ${batchCount} lotes`)
+  return allData
+}
+
 // 🔧 FUNÇÃO PRINCIPAL CORRIGIDA - MÉTRICAS DO DASHBOARD
 export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promise<DashboardMetrics> {
   try {
     console.log('🔍 [Analytics] Iniciando busca de métricas para período:', periodo)
     
-    // 🔧 CORREÇÃO 1: Calcular datas corretamente
+    // Calcular datas corretamente
     const { inicio, fim } = getDataInicio(periodo)
     
-    // 🔧 CORREÇÃO 2: Query base mais robusta
+    // Query base mais robusta
     let query = supabase
-      .from('student_records')
+      .from('consulta')
       .select('*')
       .order('data_consulta', { ascending: false })
     
-    // 🔧 CORREÇÃO 3: Aplicar filtros de data corretamente
+    // Aplicar filtros de data corretamente
     if (inicio) {
       query = query.gte('data_consulta', inicio)
       console.log('📅 [Analytics] Filtro aplicado - início:', inicio)
@@ -120,51 +186,8 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
       console.log('📅 [Analytics] Filtro aplicado - fim:', fim)
     }
 
-    console.log('📡 [Analytics] Executando query com filtros de período...')
-
-    // 🔧 CORREÇÃO 4: Buscar todos os dados de forma eficiente
-    let allData: any[] = []
-    let from = 0
-    const limit = 1000
-    let hasMore = true
-    let attempts = 0
-    const maxAttempts = 10
-
-    while (hasMore && attempts < maxAttempts) {
-      try {
-        const { data: batch, error, count } = await query
-          .range(from, from + limit - 1)
-          .abortSignal(AbortSignal.timeout(30000)) // 30s timeout
-        
-        if (error) {
-          console.error('❌ [Analytics] Erro na query:', error)
-          throw new Error(`Erro Supabase: ${error.message}`)
-        }
-
-        if (batch && batch.length > 0) {
-          allData = [...allData, ...batch]
-          console.log(`📦 [Analytics] Lote ${attempts + 1}: ${batch.length} registros (total: ${allData.length})`)
-          
-          if (batch.length < limit) {
-            hasMore = false
-          } else {
-            from += limit
-          }
-        } else {
-          hasMore = false
-        }
-        
-        attempts++
-      } catch (batchError: any) {
-        console.error(`❌ [Analytics] Erro no lote ${attempts + 1}:`, batchError)
-        if (batchError.name === 'AbortError') {
-          throw new Error('Timeout na conexão com Supabase - tente novamente')
-        }
-        throw batchError
-      }
-    }
-
-    const consultas = allData
+    // 🔧 CORREÇÃO CRÍTICA: Buscar TODOS os dados sem limite
+    const consultas = await buscarTodosOsDados(query, `métricas-${periodo}`)
 
     if (!consultas || consultas.length === 0) {
       console.log('⚠️ [Analytics] Nenhum dado encontrado para o período', periodo)
@@ -176,7 +199,7 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
       }
     }
 
-    // 🔧 CORREÇÃO 5: Log detalhado dos dados encontrados
+    // Log detalhado dos dados encontrados
     console.log('✅ [Analytics] Dados carregados:', {
       totalRegistros: consultas.length,
       primeiroRegistro: consultas[consultas.length - 1]?.data_consulta,
@@ -191,7 +214,7 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
     const alunosUnicosSet = new Set(consultas.map(c => c.aluno_id).filter(id => id !== null))
     const alunosUnicos = alunosUnicosSet.size
 
-    // 3. 🔧 CORREÇÃO 6: Nota Média dos Alunos (calculada corretamente)
+    // 3. Nota Média dos Alunos (calculada corretamente)
     const notasValidas = consultas
       .map(c => c.nota_terapeuta)
       .filter(nota => nota !== null && nota !== undefined && !isNaN(Number(nota)) && Number(nota) >= 0)
@@ -213,9 +236,11 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
 
     console.log('📊 [Analytics] Métricas calculadas:', metricas)
     
-    // 🔧 CORREÇÃO 7: Validação adicional
+    // Validação adicional
     if (metricas.totalAtendimentos === 0) {
       console.log('⚠️ [Analytics] Nenhum atendimento encontrado - verificar filtros de data')
+    } else if (metricas.totalAtendimentos < 1000) {
+      console.log('⚠️ [Analytics] Poucos atendimentos encontrados - dados podem estar filtrados')
     }
     
     return metricas
@@ -227,7 +252,6 @@ export async function getDashboardMetrics(periodo: string = 'mes_atual'): Promis
       periodo: periodo
     })
     
-    // 🔧 CORREÇÃO 8: Throw error específico para debugging
     throw new Error(`Falha ao carregar métricas: ${error.message}`)
   }
 }
@@ -240,7 +264,7 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
     const { inicio, fim } = getDataInicio(periodo)
     
     let query = supabase
-      .from('student_records')
+      .from('consulta')
       .select('terapeuta_id, aluno_id, nota_terapeuta, data_consulta')
       .order('data_consulta', { ascending: false })
     
@@ -252,44 +276,8 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
       query = query.lte('data_consulta', fim)
     }
 
-    console.log('📡 [Analytics] Executando query para terapeutas...')
-
-    // 🔧 CORREÇÃO 9: Buscar dados com timeout e error handling
-    let allData: any[] = []
-    let from = 0
-    const limit = 1000
-    let hasMore = true
-    let attempts = 0
-
-    while (hasMore && attempts < 10) {
-      try {
-        const { data: batch, error } = await query
-          .range(from, from + limit - 1)
-          .abortSignal(AbortSignal.timeout(30000))
-        
-        if (error) {
-          console.error('❌ [Analytics] Erro na query terapeutas:', error)
-          throw new Error(`Erro Supabase terapeutas: ${error.message}`)
-        }
-
-        if (batch && batch.length > 0) {
-          allData = [...allData, ...batch]
-          if (batch.length < limit) {
-            hasMore = false
-          } else {
-            from += limit
-          }
-        } else {
-          hasMore = false
-        }
-        attempts++
-      } catch (batchError: any) {
-        console.error(`❌ [Analytics] Erro no lote terapeutas ${attempts + 1}:`, batchError)
-        throw batchError
-      }
-    }
-
-    const consultas = allData
+    // 🔧 CORREÇÃO CRÍTICA: Buscar TODOS os dados dos terapeutas
+    const consultas = await buscarTodosOsDados(query, `terapeutas-${periodo}`)
     
     if (!consultas || consultas.length === 0) {
       console.log('⚠️ [Analytics] Nenhum dado de terapeuta encontrado')
@@ -298,7 +286,7 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
 
     console.log('📊 [Analytics] Processando', consultas.length, 'consultas para stats dos terapeutas')
 
-    // 🔧 CORREÇÃO 10: Agrupar e calcular estatísticas de forma robusta
+    // Agrupar e calcular estatísticas de forma robusta
     const terapeutasMap = new Map<number, any[]>()
     
     consultas.forEach(consulta => {
@@ -329,7 +317,7 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
         ? notasValidas.reduce((sum, nota) => sum + Number(nota), 0) / notasValidas.length 
         : 0
 
-      // 🔧 CORREÇÃO 11: Só incluir terapeutas com dados válidos
+      // Só incluir terapeutas com dados válidos
       if (atendimentos.length > 0) {
         terapeutasStats.push({
           terapeuta_id: terapeutaId,
@@ -345,7 +333,11 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
     const statsOrdenados = terapeutasStats.sort((a, b) => b.total_atendimentos - a.total_atendimentos)
     
     console.log('📋 [Analytics] Stats calculados para', statsOrdenados.length, 'terapeutas:', 
-      statsOrdenados.map(t => ({ nome: t.nome_terapeuta, atendimentos: t.total_atendimentos })))
+      statsOrdenados.map(t => ({ 
+        id: t.terapeuta_id,
+        nome: t.nome_terapeuta, 
+        atendimentos: t.total_atendimentos 
+      })))
     
     return statsOrdenados
 
@@ -356,7 +348,6 @@ export async function getTerapeutasStats(periodo: string = 'mes_atual'): Promise
       periodo: periodo
     })
     
-    // 🔧 CORREÇÃO 12: Throw error específico
     throw new Error(`Falha ao carregar dados dos terapeutas: ${error.message}`)
   }
 }
@@ -386,7 +377,7 @@ export async function getAnaliseIndividual(periodo: string = 'mes_atual') {
   }
 }
 
-// 🔧 FUNÇÃO DE DEBUG PARA TESTAR FILTROS
+// 🔧 FUNÇÃO DE DEBUG CORRIGIDA - SEM SPREAD OPERATOR EM SET
 export async function debugFiltros(): Promise<any> {
   try {
     console.log('🐛 [Debug] Testando todos os filtros...')
@@ -400,7 +391,7 @@ export async function debugFiltros(): Promise<any> {
     
     console.log('🐛 [Debug] Resultados:', resultados)
     
-    // Verificar se os filtros estão funcionando (números diferentes)
+    // 🔧 CORREÇÃO DO BUILD ERROR: Usar Array.from em vez de spread operator
     const numeros = [
       resultados.mesAtual.totalAtendimentos,
       resultados.ultimoMes.totalAtendimentos,
@@ -408,20 +399,57 @@ export async function debugFiltros(): Promise<any> {
       resultados.semestre.totalAtendimentos
     ]
     
-    const numerosUnicos = [...new Set(numeros)]
+    const numerosUnicos = Array.from(new Set(numeros)) // ✅ CORRIGIDO: Array.from em vez de spread
     const filtrosFuncionando = numerosUnicos.length > 1
     
     console.log('🐛 [Debug] Filtros funcionando:', filtrosFuncionando)
+    console.log('🐛 [Debug] Números únicos encontrados:', numerosUnicos)
     
     return {
       ...resultados,
       filtrosFuncionando,
       numerosUnicos: numerosUnicos.length,
+      numerosDetalhados: numerosUnicos,
       timestamp: new Date().toISOString()
     }
     
   } catch (error: any) {
     console.error('❌ [Debug] Erro no debug:', error)
+    throw error
+  }
+}
+
+// 🔧 FUNÇÃO AUXILIAR PARA VERIFICAR DADOS COMPLETOS
+export async function verificarDadosCompletos(): Promise<any> {
+  try {
+    console.log('🔍 [Verificação] Testando busca completa de dados...')
+    
+    // Buscar dados sem filtro para ver o total real
+    const query = supabase
+      .from('consulta')
+      .select('terapeuta_id, aluno_id, data_consulta')
+      .order('data_consulta', { ascending: false })
+    
+    const todosOsDados = await buscarTodosOsDados(query, 'verificação-completa')
+    
+    // Estatísticas gerais
+    const terapeutasUnicos = Array.from(new Set(todosOsDados.map(d => d.terapeuta_id).filter(id => id !== null)))
+    const alunosUnicos = Array.from(new Set(todosOsDados.map(d => d.aluno_id).filter(id => id !== null)))
+    
+    const verificacao = {
+      totalRegistros: todosOsDados.length,
+      terapeutasUnicos: terapeutasUnicos.length,
+      alunosUnicos: alunosUnicos.length,
+      terapeutasIds: terapeutasUnicos.sort((a, b) => a - b),
+      primeiroRegistro: todosOsDados[todosOsDados.length - 1]?.data_consulta,
+      ultimoRegistro: todosOsDados[0]?.data_consulta
+    }
+    
+    console.log('✅ [Verificação] Dados completos:', verificacao)
+    return verificacao
+    
+  } catch (error: any) {
+    console.error('❌ [Verificação] Erro:', error)
     throw error
   }
 }

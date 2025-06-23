@@ -40,9 +40,10 @@ export default function Dashboard() {
   }
 
   const periodos = [
+    { valor: 'mes_atual', label: 'Mês Atual' },
+    { valor: 'ultimo_mes', label: 'Último Mês' },
     { valor: 'trimestre', label: 'Último Trimestre' },
-    { valor: 'semestre', label: 'Último Semestre' },
-    { valor: 'ano', label: 'Último Ano' }
+    { valor: 'semestre', label: 'Último Semestre' }
   ]
 
   return (

@@ -28,7 +28,7 @@ export async function getDashboardMetrics(periodo: string = 'trimestre'): Promis
     
     // Query base com filtro de período
     let query = supabase
-      .from('student_records') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
+      .from('consulta') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
       .select('*')
     
     if (dataInicio) {
@@ -96,7 +96,7 @@ export async function getTerapeutasStats(periodo: string = 'trimestre'): Promise
     const dataInicio = getDataInicio(periodo)
     
     let query = supabase
-      .from('student_records') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
+      .from('consulta') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
       .select('terapeuta_id, aluno_id, nota_terapeuta, data_consulta')
     
     if (dataInicio) {

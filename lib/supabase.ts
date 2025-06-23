@@ -37,7 +37,7 @@ export async function testarConexao() {
     console.log('Anon Key:', supabaseAnonKey?.substring(0, 20) + '...')
     
     // ⚠️ IMPORTANTE: Substitua 'student_records' pelo nome correto da sua tabela
-    const nomeTabela = 'student_records'
+    const nomeTabela = 'consulta'
     
     // Tentar buscar alguns registros
     const { data, error, count } = await supabase
@@ -83,7 +83,7 @@ export async function listarTabelas() {
     // Método alternativo: tentar nomes comuns de tabela
     const nomesComuns = [
       'student_records',
-      'consultas',
+      'consulta',
       'atendimentos',
       'registros',
       'students',
@@ -129,7 +129,7 @@ export async function testarPermissoes() {
     
     // Testar leitura sem autenticação
     const { data, error } = await supabase
-      .from('student_records') // ⚠️ NOME DA TABELA
+      .from('consulta') // ⚠️ NOME DA TABELA
       .select('count')
       .limit(1)
     

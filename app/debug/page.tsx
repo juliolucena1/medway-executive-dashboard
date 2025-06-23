@@ -1,70 +1,46 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function DebugPage() {
   const [resultados, setResultados] = useState<any>(null)
+  const [verificacao, setVerificacao] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const executarTeste = async (tipoTeste: string) => {
-    setLoading(true)
-    setResultados(null)
-    
+  const testarTodosSistema = async () => {
     try {
-      console.log(`🧪 Executando teste: ${tipoTeste}`)
+      setLoading(true)
+      setError(null)
       
-      switch (tipoTeste) {
-        case 'conexao':
-          console.log('🧪 Testando conexão básica...')
-          const { testarConexao } = await import('@/lib/supabase')
-          const resultadoConexao = await testarConexao()
-          setResultados({ tipo: 'Teste de Conexão', dados: resultadoConexao })
-          break
-          
-        case 'tabelas':
-          console.log('🧪 Listando tabelas disponíveis...')
-          const { listarTabelas } = await import('@/lib/supabase')
-          const tabelas = await listarTabelas()
-          setResultados({ tipo: 'Lista de Tabelas', dados: tabelas })
-          break
-
-        case 'permissoes':
-          console.log('🧪 Testando permissões RLS...')
-          const { testarPermissoes } = await import('@/lib/supabase')
-          const permissoes = await testarPermissoes()
-          setResultados({ tipo: 'Teste de Permissões', dados: permissoes })
-          break
-          
-        case 'metricas':
-          console.log('🧪 Testando cálculo de métricas...')
-          const { getDashboardMetrics } = await import('@/utils/dashboardAnalytics')
-          const metricas = await getDashboardMetrics('mes_atual') // Usar mês atual como teste
-          setResultados({ tipo: 'Métricas Dashboard', dados: metricas })
-          break
-
-        case 'todos_dados':
-          console.log('🧪 Testando TODOS os dados (sem limite)...')
-          const { getDashboardMetrics: getAllMetrics } = await import('@/utils/dashboardAnalytics')
-          const todosDados = await getAllMetrics() // Sem período = todos os dados
-          setResultados({ tipo: 'Teste TODOS os Dados', dados: todosDados })
-          break
-          
-        default:
-          setResultados({ tipo: 'Erro', dados: 'Tipo de teste desconhecido' })
-      }
-    } catch (error) {
-      console.error('❌ Erro no teste:', error)
-      setResultados({ 
-        tipo: 'Erro', 
-        dados: {
-          erro: error instanceof Error ? error.message : 'Erro desconhecido',
-          stack: error instanceof Error ? error.stack : undefined
-        }
-      })
+      console.log('🔄 [Debug] Iniciando teste completo do sistema...')
+      
+      // Importar as funções de debug
+      const { debugFiltros, verificarDadosCompletos } = await import('@/utils/dashboardAnalytics')
+      
+      // 1. Verificar dados completos primeiro
+      console.log('📊 [Debug] Verificando dados completos...')
+      const dadosCompletos = await verificarDadosCompletos()
+      setVerificacao(dadosCompletos)
+      
+      // 2. Testar todos os filtros
+      console.log('🔍 [Debug] Testando filtros...')
+      const testesFiltros = await debugFiltros()
+      setResultados(testesFiltros)
+      
+      console.log('✅ [Debug] Teste completo finalizado')
+      
+    } catch (err: any) {
+      console.error('❌ [Debug] Erro no teste:', err)
+      setError(`Erro: ${err.message}`)
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    testarTodosSistema()
+  }, [])
 
   return (
     <div style={{
@@ -76,444 +52,405 @@ export default function DebugPage() {
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         
+        {/* Header */}
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{
-            fontSize: '2rem',
+            fontSize: '2.5rem',
             fontWeight: 'bold',
-            color: '#c084fc',
+            background: 'linear-gradient(to right, #ef4444, #f97316)',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            color: 'transparent',
             marginBottom: '0.5rem'
           }}>
-            🔧 Debug - Conexão Supabase
+            🔧 Debug Dashboard Medway
           </h1>
-          <p style={{
-            color: '#9ca3af',
-            margin: 0
-          }}>
-            Use esta página para testar e debugar a conexão com o Supabase
+          <p style={{ color: '#9ca3af', fontSize: '1.125rem' }}>
+            Diagnóstico completo dos dados e filtros
           </p>
-        </div>
-
-        {/* Environment Variables Check */}
-        <div style={{
-          background: 'linear-gradient(135deg, #1f2937, #111827)',
-          borderRadius: '12px',
-          padding: '1.5rem',
-          border: '1px solid #374151',
-          marginBottom: '1.5rem'
-        }}>
-          <h2 style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            marginBottom: '1rem',
-            color: 'white'
-          }}>
-            📋 Environment Variables
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                backgroundColor: process.env.NEXT_PUBLIC_SUPABASE_URL ? '#10b981' : '#ef4444'
-              }}></span>
-              <span style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                NEXT_PUBLIC_SUPABASE_URL:
-              </span>
-              <span style={{ color: '#d1d5db' }}>
-                {process.env.NEXT_PUBLIC_SUPABASE_URL || '❌ Não definida'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                backgroundColor: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '#10b981' : '#ef4444'
-              }}></span>
-              <span style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                NEXT_PUBLIC_SUPABASE_ANON_KEY:
-              </span>
-              <span style={{ color: '#d1d5db' }}>
-                {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
-                  ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 20)}...` 
-                  : '❌ Não definida'
-                }
-              </span>
-            </div>
-          </div>
           
-          {(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '1rem',
-              backgroundColor: 'rgba(127, 29, 29, 0.5)',
-              border: '1px solid #dc2626',
-              borderRadius: '8px'
-            }}>
-              <p style={{ color: '#fecaca', fontWeight: '600', margin: '0 0 0.5rem 0' }}>
-                ⚠️ Environment Variables não configuradas!
-              </p>
-              <p style={{ color: '#fca5a5', fontSize: '0.875rem', margin: 0 }}>
-                Configure as variáveis no Vercel: Settings → Environment Variables
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Botões de Teste */}
-        <div style={{
-          background: 'linear-gradient(135deg, #1f2937, #111827)',
-          borderRadius: '12px',
-          padding: '1.5rem',
-          border: '1px solid #374151',
-          marginBottom: '1.5rem'
-        }}>
-          <h2 style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            marginBottom: '1rem',
-            color: 'white'
-          }}>
-            🧪 Testes Disponíveis
-          </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem'
-          }}>
-            
-            <button
-              onClick={() => executarTeste('conexao')}
-              disabled={loading}
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <a 
+              href="/"
               style={{
-                padding: '1rem',
-                backgroundColor: '#3b82f6',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#374151',
                 borderRadius: '8px',
-                fontWeight: '500',
-                border: 'none',
                 color: 'white',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                fontSize: '0.875rem'
+                textDecoration: 'none'
               }}
             >
-              🔗 Conexão Básica
-            </button>
-            
-            <button
-              onClick={() => executarTeste('tabelas')}
-              disabled={loading}
+              ← Dashboard Principal
+            </a>
+            <a 
+              href="/executive"
               style={{
-                padding: '1rem',
-                backgroundColor: '#10b981',
-                borderRadius: '8px',
-                fontWeight: '500',
-                border: 'none',
-                color: 'white',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                fontSize: '0.875rem'
-              }}
-            >
-              📋 Listar Tabelas
-            </button>
-
-            <button
-              onClick={() => executarTeste('permissoes')}
-              disabled={loading}
-              style={{
-                padding: '1rem',
-                backgroundColor: '#ea580c',
-                borderRadius: '8px',
-                fontWeight: '500',
-                border: 'none',
-                color: 'white',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                fontSize: '0.875rem'
-              }}
-            >
-              🔒 Permissões RLS
-            </button>
-            
-            <button
-              onClick={() => executarTeste('metricas')}
-              disabled={loading}
-              style={{
-                padding: '1rem',
+                padding: '0.5rem 1rem',
                 backgroundColor: '#7c3aed',
                 borderRadius: '8px',
-                fontWeight: '500',
-                border: 'none',
                 color: 'white',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                fontSize: '0.875rem'
+                textDecoration: 'none'
               }}
             >
-              📊 Testar Métricas
-            </button>
-
+              Executive →
+            </a>
             <button
-              onClick={() => executarTeste('todos_dados')}
+              onClick={testarTodosSistema}
               disabled={loading}
               style={{
-                padding: '1rem',
-                backgroundColor: '#dc2626',
+                padding: '0.5rem 1rem',
+                backgroundColor: loading ? '#6b7280' : '#059669',
                 borderRadius: '8px',
-                fontWeight: '500',
-                border: 'none',
                 color: 'white',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-                fontSize: '0.875rem'
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
-              🔥 TODOS os Dados
+              {loading ? '🔄 Testando...' : '🔄 Testar Novamente'}
             </button>
-            
           </div>
-          
-          {loading && (
-            <div style={{
-              marginTop: '1rem',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                color: '#c084fc'
-              }}>
-                <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
-                Executando teste...
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Resultados */}
-        {resultados && (
+        {/* Loading */}
+        {loading && (
           <div style={{
-            background: 'linear-gradient(135deg, #1f2937, #111827)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid #3b82f6',
+            borderRadius: '12px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ 
+              fontSize: '1.25rem', 
+              color: '#93c5fd',
+              marginBottom: '1rem'
+            }}>
+              <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+              Executando diagnóstico completo...
+            </div>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Isso pode levar alguns segundos para verificar todos os dados
+            </p>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid #ef4444',
             borderRadius: '12px',
             padding: '1.5rem',
-            border: '1px solid #374151',
-            marginBottom: '1.5rem'
+            marginBottom: '2rem'
+          }}>
+            <h3 style={{ color: '#fca5a5', margin: '0 0 0.5rem 0' }}>❌ Erro no Diagnóstico</h3>
+            <p style={{ color: '#fecaca', margin: 0, fontSize: '0.875rem' }}>{error}</p>
+          </div>
+        )}
+
+        {/* Verificação de Dados Completos */}
+        {verificacao && (
+          <div style={{
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid #10b981',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginBottom: '2rem'
           }}>
             <h2 style={{
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              marginBottom: '1rem',
-              color: 'white'
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: '#34d399',
+              marginBottom: '1rem'
             }}>
-              📊 Resultados: {resultados.tipo}
+              📊 Verificação de Dados Completos
             </h2>
             
             <div style={{
-              backgroundColor: '#111827',
-              borderRadius: '8px',
-              padding: '1rem',
-              overflow: 'auto',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
               marginBottom: '1rem'
             }}>
-              <pre style={{
-                fontSize: '0.875rem',
-                color: '#d1d5db',
-                whiteSpace: 'pre-wrap',
-                margin: 0,
-                fontFamily: 'monospace'
-              }}>
-                {JSON.stringify(resultados.dados, null, 2)}
-              </pre>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 'bold',
+                  color: '#10b981'
+                }}>
+                  {verificacao.totalRegistros?.toLocaleString() || '0'}
+                </div>
+                <div style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Total de Registros</div>
+                {verificacao.totalRegistros > 1500 && (
+                  <div style={{ color: '#10b981', fontSize: '0.75rem' }}>✅ Todos os dados carregados</div>
+                )}
+                {verificacao.totalRegistros <= 1000 && (
+                  <div style={{ color: '#ef4444', fontSize: '0.75rem' }}>⚠️ Dados podem estar limitados</div>
+                )}
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 'bold',
+                  color: '#3b82f6'
+                }}>
+                  {verificacao.terapeutasUnicos || '0'}
+                </div>
+                <div style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Terapeutas Únicos</div>
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 'bold',
+                  color: '#8b5cf6'
+                }}>
+                  {verificacao.alunosUnicos || '0'}
+                </div>
+                <div style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Alunos Únicos</div>
+              </div>
             </div>
-            
-            {/* Interpretação dos Resultados */}
-            <div style={{
+
+            <div style={{ 
+              backgroundColor: 'rgba(55, 65, 81, 0.5)', 
+              borderRadius: '8px', 
               padding: '1rem',
-              backgroundColor: '#374151',
-              borderRadius: '8px'
+              marginTop: '1rem'
             }}>
-              <h3 style={{
-                fontWeight: '600',
-                marginBottom: '0.5rem',
-                color: 'white'
+              <h4 style={{ color: '#d1d5db', margin: '0 0 0.5rem 0' }}>IDs dos Terapeutas Encontrados:</h4>
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '0.5rem',
+                fontSize: '0.875rem'
               }}>
-                🔍 Interpretação:
-              </h3>
-              
-              {resultados.tipo === 'Teste de Conexão' && (
-                <div>
-                  {resultados.dados.sucesso ? (
-                    <div style={{ color: '#10b981' }}>
-                      ✅ Conexão bem-sucedida! Encontrados {resultados.dados.totalRegistros} registros.
-                      <br />
-                      📋 Nome da tabela: {resultados.dados.nomeTabela}
-                    </div>
-                  ) : (
-                    <div style={{ color: '#ef4444' }}>
-                      ❌ Falha na conexão. Verifique:
-                      <ul style={{ listStyle: 'disc', listStylePosition: 'inside', marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                        <li>Environment variables no Vercel</li>
-                        <li>Nome da tabela (deve ser exato)</li>
-                        <li>Permissões RLS no Supabase</li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
+                {verificacao.terapeutasIds?.map((id: number) => (
+                  <span 
+                    key={id}
+                    style={{
+                      backgroundColor: '#374151',
+                      color: '#d1d5db',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    {id}
+                  </span>
+                )) || 'Carregando...'}
+              </div>
+            </div>
 
-              {resultados.tipo === 'Lista de Tabelas' && (
-                <div>
-                  {resultados.dados.length > 0 ? (
-                    <div style={{ color: '#10b981' }}>
-                      ✅ Tabelas encontradas: {resultados.dados.join(', ')}
-                      <br />
-                      💡 Use uma dessas no arquivo utils/dashboardAnalytics.ts
-                    </div>
-                  ) : (
-                    <div style={{ color: '#ef4444' }}>
-                      ❌ Nenhuma tabela encontrada. Verifique as permissões.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {resultados.tipo === 'Teste de Permissões' && (
-                <div>
-                  {resultados.dados.temPermissao ? (
-                    <div style={{ color: '#10b981' }}>
-                      ✅ Permissões OK! Pode acessar os dados.
-                    </div>
-                  ) : (
-                    <div style={{ color: '#ef4444' }}>
-                      ❌ Problemas de permissão. Configure RLS no Supabase.
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {resultados.tipo === 'Métricas Dashboard' && (
-                <div style={{ color: '#10b981' }}>
-                  ✅ Métricas calculadas com sucesso! O dashboard deve estar funcionando.
-                </div>
-              )}
-
-              {resultados.tipo === 'Teste TODOS os Dados' && (
-                <div>
-                  {resultados.dados.totalAtendimentos > 1000 ? (
-                    <div style={{ color: '#10b981' }}>
-                      🎉 EXCELENTE! Limite de 1000 registros foi corrigido!
-                      <br />
-                      📊 Total encontrado: {resultados.dados.totalAtendimentos} atendimentos
-                      <br />
-                      💡 O dashboard agora mostra todos os dados reais!
-                    </div>
-                  ) : (
-                    <div style={{ color: '#fbbf24' }}>
-                      ⚠️ Ainda parece limitado a {resultados.dados.totalAtendimentos} registros
-                      <br />
-                      💡 Verifique se o código foi atualizado corretamente
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {resultados.tipo === 'Erro' && (
-                <div style={{ color: '#ef4444' }}>
-                  ❌ Erro durante o teste. Verifique o console do navegador para mais detalhes.
-                </div>
-              )}
+            <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#9ca3af' }}>
+              <p style={{ margin: '0.25rem 0' }}>
+                <strong>Primeiro Registro:</strong> {verificacao.primeiroRegistro || 'N/A'}
+              </p>
+              <p style={{ margin: '0.25rem 0' }}>
+                <strong>Último Registro:</strong> {verificacao.ultimoRegistro || 'N/A'}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Instruções de Solução */}
-        <div style={{
-          backgroundColor: 'rgba(217, 119, 6, 0.2)',
-          border: '1px solid #d97706',
-          borderRadius: '12px',
-          padding: '1.5rem',
-          marginBottom: '1.5rem'
-        }}>
-          <h2 style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            marginBottom: '1rem',
-            color: '#fbbf24'
+        {/* Teste de Filtros */}
+        {resultados && (
+          <div style={{
+            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+            border: '1px solid #7c3aed',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginBottom: '2rem'
           }}>
-            💡 Guia de Solução
-          </h2>
-          <div style={{ 
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-            color: '#fcd34d'
-          }}>
-            
-            <div>
-              <h3 style={{ fontWeight: '600' }}>🔗 Se "Conexão Básica" falhar:</h3>
-              <ol style={{ listStyle: 'decimal', listStylePosition: 'inside', marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                <li>Verifique as Environment Variables no Vercel</li>
-                <li>Faça um redeploy do projeto</li>
-                <li>Teste o "Listar Tabelas" para ver o nome correto</li>
-              </ol>
-            </div>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: '#a78bfa',
+              marginBottom: '1rem'
+            }}>
+              🔍 Teste de Filtros por Período
+            </h2>
 
-            <div>
-              <h3 style={{ fontWeight: '600' }}>📋 Se "Listar Tabelas" não encontrar nada:</h3>
-              <ol style={{ listStyle: 'decimal', listStylePosition: 'inside', marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                <li>Acesse o Supabase Dashboard</li>
-                <li>Vá em Authentication → Policies</li>
-                <li>Crie uma política de SELECT para acesso público</li>
-              </ol>
-            </div>
-
-            <div>
-              <h3 style={{ fontWeight: '600' }}>📊 Nome correto da tabela:</h3>
-              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
-                Atualize o nome em <code style={{ backgroundColor: '#374151', padding: '0.25rem', borderRadius: '4px' }}>utils/dashboardAnalytics.ts</code> e <code style={{ backgroundColor: '#374151', padding: '0.25rem', borderRadius: '4px' }}>lib/supabase.ts</code>
+            {/* Status dos Filtros */}
+            <div style={{
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              backgroundColor: resultados.filtrosFuncionando 
+                ? 'rgba(16, 185, 129, 0.1)' 
+                : 'rgba(239, 68, 68, 0.1)',
+              border: `1px solid ${resultados.filtrosFuncionando ? '#10b981' : '#ef4444'}`
+            }}>
+              <div style={{
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+                color: resultados.filtrosFuncionando ? '#10b981' : '#ef4444',
+                marginBottom: '0.5rem'
+              }}>
+                {resultados.filtrosFuncionando ? '✅ Filtros Funcionando' : '❌ Filtros COM PROBLEMA'}
+              </div>
+              <p style={{ 
+                color: '#9ca3af', 
+                margin: 0, 
+                fontSize: '0.875rem' 
+              }}>
+                {resultados.filtrosFuncionando 
+                  ? `Encontrados ${resultados.numerosUnicos} valores diferentes nos períodos`
+                  : 'Todos os períodos retornam os mesmos números - filtros não estão funcionando'
+                }
               </p>
             </div>
 
+            {/* Resultados por Período */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '1rem'
+            }}>
+              {Object.entries(resultados).filter(([key]) => 
+                ['mesAtual', 'ultimoMes', 'trimestre', 'semestre'].includes(key)
+              ).map(([periodo, dados]: [string, any]) => {
+                const labels: Record<string, string> = {
+                  mesAtual: 'Mês Atual',
+                  ultimoMes: 'Último Mês',
+                  trimestre: 'Último Trimestre',
+                  semestre: 'Último Semestre'
+                }
+
+                return (
+                  <div 
+                    key={periodo}
+                    style={{
+                      backgroundColor: 'rgba(55, 65, 81, 0.5)',
+                      borderRadius: '8px',
+                      padding: '1rem'
+                    }}
+                  >
+                    <h4 style={{
+                      color: '#d1d5db',
+                      margin: '0 0 0.75rem 0',
+                      fontSize: '1rem'
+                    }}>
+                      {labels[periodo]}
+                    </h4>
+                    
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#c084fc' }}>Atendimentos:</span>
+                        <span style={{ fontWeight: 'bold', marginLeft: '0.5rem', color: '#d1d5db' }}>
+                          {dados.totalAtendimentos?.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#10b981' }}>Alunos Únicos:</span>
+                        <span style={{ fontWeight: 'bold', marginLeft: '0.5rem', color: '#d1d5db' }}>
+                          {dados.alunosUnicos?.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#fbbf24' }}>Nota Média:</span>
+                        <span style={{ fontWeight: 'bold', marginLeft: '0.5rem', color: '#d1d5db' }}>
+                          {dados.notaMediaAlunos || '0'}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#60a5fa' }}>Terapeutas:</span>
+                        <span style={{ fontWeight: 'bold', marginLeft: '0.5rem', color: '#d1d5db' }}>
+                          {dados.terapeutasAtivos || '0'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Números Únicos Encontrados */}
+            <div style={{
+              marginTop: '1.5rem',
+              padding: '1rem',
+              backgroundColor: 'rgba(55, 65, 81, 0.5)',
+              borderRadius: '8px'
+            }}>
+              <h4 style={{ color: '#d1d5db', margin: '0 0 0.5rem 0' }}>
+                Números Únicos de Atendimentos por Período:
+              </h4>
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '0.5rem',
+                fontSize: '0.875rem'
+              }}>
+                {resultados.numerosDetalhados?.map((num: number, index: number) => (
+                  <span 
+                    key={index}
+                    style={{
+                      backgroundColor: '#7c3aed',
+                      color: 'white',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '999px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {num.toLocaleString()}
+                  </span>
+                )) || 'Carregando...'}
+              </div>
+              <p style={{ 
+                color: '#9ca3af', 
+                fontSize: '0.75rem', 
+                margin: '0.5rem 0 0 0' 
+              }}>
+                {resultados.numerosUnicos === 1 
+                  ? '⚠️ Apenas 1 valor único - filtros não estão funcionando'
+                  : `✅ ${resultados.numerosUnicos} valores diferentes - filtros funcionando`
+                }
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Instruções */}
+        <div style={{
+          backgroundColor: 'rgba(55, 65, 81, 0.5)',
+          borderRadius: '12px',
+          padding: '1.5rem'
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 'bold',
+            color: '#d1d5db',
+            marginBottom: '1rem'
+          }}>
+            📋 Como Interpretar os Resultados
+          </h3>
+          
+          <div style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: 1.6 }}>
+            <p style={{ marginBottom: '0.75rem' }}>
+              <strong style={{ color: '#10b981' }}>✅ Tudo OK se:</strong>
+            </p>
+            <ul style={{ marginLeft: '1rem', marginBottom: '1rem' }}>
+              <li>Total de registros &gt; 1500 (todos os dados carregados)</li>
+              <li>Filtros funcionando = true (números diferentes por período)</li>
+              <li>IDs de terapeutas mostram valores reais (não só 3, 6, etc.)</li>
+            </ul>
+            
+            <p style={{ marginBottom: '0.75rem' }}>
+              <strong style={{ color: '#ef4444' }}>❌ Problema se:</strong>
+            </p>
+            <ul style={{ marginLeft: '1rem' }}>
+              <li>Total de registros ≤ 1000 (dados limitados)</li>
+              <li>Filtros funcionando = false (mesmos números)</li>
+              <li>Poucos terapeutas únicos encontrados</li>
+            </ul>
           </div>
         </div>
 
-        {/* Link para voltar */}
-        <div style={{ textAlign: 'center' }}>
-          <a 
-            href="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#7c3aed',
-              borderRadius: '8px',
-              fontWeight: '500',
-              color: 'white',
-              textDecoration: 'none'
-            }}
-          >
-            ← Voltar ao Dashboard
-          </a>
-        </div>
-
-        {/* CSS para animação */}
+        {/* CSS */}
         <style>{`
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
-          }
-          
-          @media (max-width: 768px) {
-            div[style*="padding: '2rem'"] {
-              padding: 1rem !important;
-            }
-            div[style*="gridTemplateColumns"] {
-              grid-template-columns: 1fr !important;
-            }
           }
         `}</style>
 

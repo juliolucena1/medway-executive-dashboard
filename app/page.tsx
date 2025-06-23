@@ -1,8 +1,7 @@
-// app/page.tsx - Dashboard Principal
+// app/page.tsx - Dashboard Principal (sem lucide-react)
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RefreshCw } from 'lucide-react'
 import { getDashboardMetrics, DashboardMetrics } from '@/utils/dashboardAnalytics'
 
 export default function Dashboard() {
@@ -91,7 +90,7 @@ export default function Dashboard() {
             disabled={loading}
             className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-xl font-medium transition-all flex items-center gap-2 disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className={loading ? 'animate-spin' : ''}>🔄</span>
             Atualizar
           </button>
 
@@ -108,7 +107,7 @@ export default function Dashboard() {
         {loading && (
           <div className="text-center py-8">
             <div className="inline-flex items-center gap-2 text-purple-400">
-              <RefreshCw className="w-5 h-5 animate-spin" />
+              <span className="animate-spin">⏳</span>
               Carregando dados do Supabase...
             </div>
           </div>

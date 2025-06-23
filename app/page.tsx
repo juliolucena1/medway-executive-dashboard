@@ -1,4 +1,4 @@
-// app/page.tsx - Dashboard Principal (sem lucide-react)
+// app/page.tsx - Dashboard Principal com Layout Corrigido
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -50,35 +50,76 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-7xl mx-auto">
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#111827',
+      color: 'white',
+      padding: '2rem'
+    }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         
         {/* Header */}
-        <div className="flex items-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4">
-            <div className="text-2xl">📊</div>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          marginBottom: '2rem' 
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: '1rem',
+            fontSize: '1.5rem'
+          }}>
+            📊
           </div>
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 style={{
+              fontSize: '2.5rem',
+              fontWeight: 'bold',
+              background: 'linear-gradient(to right, #c084fc, #60a5fa)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              color: 'transparent',
+              margin: 0
+            }}>
               MEDWAY Executive
             </h1>
-            <p className="text-gray-400 text-lg">
+            <p style={{
+              color: '#9ca3af',
+              fontSize: '1.125rem',
+              margin: '0.5rem 0 0 0'
+            }}>
               Dashboard de Análise de Produtividade dos Terapeutas
             </p>
           </div>
         </div>
 
         {/* Seletores de Período */}
-        <div className="flex flex-wrap gap-4 mb-8">
+        <div style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: '1rem', 
+          marginBottom: '2rem' 
+        }}>
           {periodos.map((p) => (
             <button
               key={p.valor}
               onClick={() => setPeriodo(p.valor)}
-              className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                periodo === p.valor
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '12px',
+                fontWeight: '500',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                backgroundColor: periodo === p.valor ? '#7c3aed' : '#374151',
+                color: periodo === p.valor ? 'white' : '#d1d5db'
+              }}
             >
               {p.label}
             </button>
@@ -88,16 +129,36 @@ export default function Dashboard() {
           <button
             onClick={carregarDados}
             disabled={loading}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-xl font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#059669',
+              borderRadius: '12px',
+              fontWeight: '500',
+              border: 'none',
+              color: 'white',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
           >
-            <span className={loading ? 'animate-spin' : ''}>🔄</span>
+            <span style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
             Atualizar
           </button>
 
           {/* Link para Debug */}
           <a
             href="/debug"
-            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-xl font-medium transition-all"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#d97706',
+              borderRadius: '12px',
+              fontWeight: '500',
+              color: 'white',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
           >
             🔧 Debug
           </a>
@@ -105,73 +166,176 @@ export default function Dashboard() {
 
         {/* Indicador de Loading/Erro */}
         {loading && (
-          <div className="text-center py-8">
-            <div className="inline-flex items-center gap-2 text-purple-400">
-              <span className="animate-spin">⏳</span>
+          <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              color: '#c084fc' 
+            }}>
+              <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
               Carregando dados do Supabase...
             </div>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-900/50 border border-red-500 rounded-xl p-4 mb-8">
-            <p className="text-red-200">⚠️ {error}</p>
+          <div style={{
+            backgroundColor: 'rgba(127, 29, 29, 0.5)',
+            border: '1px solid #dc2626',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <p style={{ color: '#fecaca', margin: 0 }}>⚠️ {error}</p>
             <button 
               onClick={carregarDados}
-              className="mt-2 text-red-400 hover:text-red-300 underline"
+              style={{
+                marginTop: '0.5rem',
+                color: '#f87171',
+                background: 'none',
+                border: 'none',
+                textDecoration: 'underline',
+                cursor: 'pointer'
+              }}
             >
               Tentar novamente
             </button>
-            <div className="mt-2 text-sm text-red-300">
-              💡 Se o erro persistir, acesse o <a href="/debug" className="underline">Debug</a> para mais informações
+            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#fca5a5' }}>
+              💡 Se o erro persistir, acesse o <a href="/debug" style={{ textDecoration: 'underline' }}>Debug</a> para mais informações
             </div>
           </div>
         )}
 
         {/* Cards de Métricas */}
         {!loading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
             
             {/* Total de Atendimentos */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
-              <h3 className="text-gray-300 text-sm font-medium mb-2">Total de Atendimentos</h3>
-              <div className="text-4xl font-bold text-purple-400 mb-1">
+            <div style={{
+              background: 'linear-gradient(135deg, #1f2937, #111827)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              border: '1px solid #374151'
+            }}>
+              <h3 style={{
+                color: '#d1d5db',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                margin: '0 0 0.5rem 0'
+              }}>
+                Total de Atendimentos
+              </h3>
+              <div style={{
+                fontSize: '2.5rem',
+                fontWeight: 'bold',
+                color: '#c084fc',
+                margin: '0.25rem 0'
+              }}>
                 {metrics.totalAtendimentos.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-500">
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#6b7280'
+              }}>
                 Período: {periodos.find(p => p.valor === periodo)?.label}
               </div>
             </div>
 
             {/* Alunos Únicos */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
-              <h3 className="text-gray-300 text-sm font-medium mb-2">Alunos Únicos</h3>
-              <div className="text-4xl font-bold text-green-400 mb-1">
+            <div style={{
+              background: 'linear-gradient(135deg, #1f2937, #111827)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              border: '1px solid #374151'
+            }}>
+              <h3 style={{
+                color: '#d1d5db',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                margin: '0 0 0.5rem 0'
+              }}>
+                Alunos Únicos
+              </h3>
+              <div style={{
+                fontSize: '2.5rem',
+                fontWeight: 'bold',
+                color: '#10b981',
+                margin: '0.25rem 0'
+              }}>
                 {metrics.alunosUnicos.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-500">
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#6b7280'
+              }}>
                 Pacientes diferentes atendidos
               </div>
             </div>
 
             {/* Nota Média da Equipe */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
-              <h3 className="text-gray-300 text-sm font-medium mb-2">Nota Média da Equipe</h3>
-              <div className="text-4xl font-bold text-yellow-400 mb-1">
+            <div style={{
+              background: 'linear-gradient(135deg, #1f2937, #111827)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              border: '1px solid #374151'
+            }}>
+              <h3 style={{
+                color: '#d1d5db',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                margin: '0 0 0.5rem 0'
+              }}>
+                Nota Média da Equipe
+              </h3>
+              <div style={{
+                fontSize: '2.5rem',
+                fontWeight: 'bold',
+                color: '#fbbf24',
+                margin: '0.25rem 0'
+              }}>
                 {metrics.notaMediaEquipe}
               </div>
-              <div className="text-xs text-gray-500">
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#6b7280'
+              }}>
                 Avaliação dos terapeutas
               </div>
             </div>
 
             {/* Terapeutas Ativos */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
-              <h3 className="text-gray-300 text-sm font-medium mb-2">Terapeutas Ativos</h3>
-              <div className="text-4xl font-bold text-blue-400 mb-1">
+            <div style={{
+              background: 'linear-gradient(135deg, #1f2937, #111827)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              border: '1px solid #374151'
+            }}>
+              <h3 style={{
+                color: '#d1d5db',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                margin: '0 0 0.5rem 0'
+              }}>
+                Terapeutas Ativos
+              </h3>
+              <div style={{
+                fontSize: '2.5rem',
+                fontWeight: 'bold',
+                color: '#60a5fa',
+                margin: '0.25rem 0'
+              }}>
                 {metrics.terapeutasAtivos}
               </div>
-              <div className="text-xs text-gray-500">
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#6b7280'
+              }}>
                 Profissionais em atividade
               </div>
             </div>
@@ -180,21 +344,43 @@ export default function Dashboard() {
         )}
 
         {/* Seção de Análise Individual */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 border border-gray-700">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">
+        <div style={{
+          background: 'linear-gradient(135deg, #1f2937, #111827)',
+          borderRadius: '16px',
+          padding: '2rem',
+          border: '1px solid #374151'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.5rem'
+          }}>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: 'white',
+              margin: 0
+            }}>
               👥 Análise Individual dos Terapeutas
             </h2>
             <a 
               href="/executive"
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-all"
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#7c3aed',
+                borderRadius: '8px',
+                fontWeight: '500',
+                color: 'white',
+                textDecoration: 'none'
+              }}
             >
               Ver Detalhes →
             </a>
           </div>
           
-          <div className="text-gray-400">
-            <p>
+          <div style={{ color: '#9ca3af' }}>
+            <p style={{ margin: 0 }}>
               Clique em "Ver Detalhes" para acessar a análise completa de cada terapeuta, 
               incluindo métricas individuais de performance e produtividade.
             </p>
@@ -202,17 +388,30 @@ export default function Dashboard() {
         </div>
 
         {/* Status da Conexão */}
-        <div className="mt-8 text-center text-gray-500 text-sm">
-          <p>✅ Dashboard conectado ao Supabase em tempo real</p>
-          <p className="mt-1">
-            Período selecionado: <span className="text-purple-400 font-medium">
+        <div style={{
+          marginTop: '2rem',
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          color: '#6b7280'
+        }}>
+          <p style={{ margin: 0 }}>✅ Dashboard conectado ao Supabase em tempo real</p>
+          <p style={{ margin: '0.25rem 0' }}>
+            Período selecionado: <span style={{ color: '#c084fc', fontWeight: '500' }}>
               {periodos.find(p => p.valor === periodo)?.label}
             </span>
           </p>
-          <p className="mt-1">
+          <p style={{ margin: '0.25rem 0' }}>
             Dados atualizados em: {new Date().toLocaleString('pt-BR')}
           </p>
         </div>
+
+        {/* CSS para animação de spin */}
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
 
       </div>
     </div>

@@ -38,7 +38,7 @@ export default function DebugPage() {
         case 'metricas':
           console.log('🧪 Testando cálculo de métricas...')
           const { getDashboardMetrics } = await import('@/utils/dashboardAnalytics')
-          const metricas = await getDashboardMetrics('trimestre')
+          const metricas = await getDashboardMetrics('mes_atual') // Usar mês atual como teste
           setResultados({ tipo: 'Métricas Dashboard', dados: metricas })
           break
 

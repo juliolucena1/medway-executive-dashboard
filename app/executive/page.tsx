@@ -7,7 +7,7 @@ interface TerapeutaStats {
   nome_terapeuta: string
   total_atendimentos: number
   alunos_unicos: number
-  nota_media: number
+  nota_media_alunos: number // 🔄 MUDOU: agora é nota dos alunos
 }
 
 export default function ExecutivePage() {
@@ -48,16 +48,19 @@ export default function ExecutivePage() {
     { valor: 'semestre', label: 'Último Semestre' }
   ]
 
-  const getStatusColor = (nota: number) => {
-    if (nota >= 8) return '#10b981'
-    if (nota >= 6) return '#fbbf24'
-    return '#ef4444'
+  // 🔄 FUNÇÕES ATUALIZADAS - Interpretação correta das notas dos alunos (0-20, menor é melhor)
+  const getStatusColor = (notaAlunos: number) => {
+    if (notaAlunos <= 5) return '#10b981'   // Verde - alunos estáveis
+    if (notaAlunos <= 10) return '#fbbf24'  // Amarelo - situação média
+    if (notaAlunos <= 15) return '#ea580c'  // Laranja - precisa atenção
+    return '#ef4444'                        // Vermelho - situação crítica
   }
 
-  const getStatusText = (nota: number) => {
-    if (nota >= 8) return 'Excelente'
-    if (nota >= 6) return 'Bom'
-    return 'Precisa Melhorar'
+  const getStatusText = (notaAlunos: number) => {
+    if (notaAlunos <= 5) return 'Excelente'      // Alunos muito estáveis
+    if (notaAlunos <= 10) return 'Bom'           // Alunos estáveis
+    if (notaAlunos <= 15) return 'Atenção'       // Alunos precisam atenção
+    return 'Crítico'                             // Alunos em situação crítica
   }
 
   return (
@@ -260,9 +263,9 @@ export default function ExecutivePage() {
                       fontSize: '0.75rem',
                       fontWeight: '500',
                       color: 'white',
-                      backgroundColor: getStatusColor(terapeuta.nota_media)
+                      backgroundColor: getStatusColor(terapeuta.nota_media_alunos)
                     }}>
-                      {getStatusText(terapeuta.nota_media)}
+                      {getStatusText(terapeuta.nota_media_alunos)}
                     </span>
                   </div>
 
@@ -291,15 +294,15 @@ export default function ExecutivePage() {
                       </span>
                     </div>
 
-                    {/* Nota Média */}
+                    {/* Nota Média dos Alunos */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#9ca3af' }}>Nota Média:</span>
+                      <span style={{ color: '#9ca3af' }}>Nota Média dos Alunos:</span>
                       <span style={{ 
-                        color: getStatusColor(terapeuta.nota_media),
+                        color: getStatusColor(terapeuta.nota_media_alunos),
                         fontWeight: 'bold', 
                         fontSize: '1.125rem' 
                       }}>
-                        {terapeuta.nota_media}
+                        {terapeuta.nota_media_alunos}
                       </span>
                     </div>
 
@@ -379,11 +382,14 @@ export default function ExecutivePage() {
                     marginBottom: '0.5rem'
                   }}>
                     {terapeutas.length > 0 
-                      ? (terapeutas.reduce((sum, t) => sum + t.nota_media, 0) / terapeutas.length).toFixed(1)
+                      ? (terapeutas.reduce((sum, t) => sum + t.nota_media_alunos, 0) / terapeutas.length).toFixed(1)
                       : '0'
                     }
                   </div>
-                  <div style={{ color: '#9ca3af' }}>Nota Média Geral</div>
+                  <div style={{ color: '#9ca3af' }}>Nota Média Geral dos Alunos</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                    (0=estável, 20=crítico)
+                  </div>
                 </div>
               </div>
             </div>
@@ -402,12 +408,12 @@ export default function ExecutivePage() {
                 color: 'white',
                 marginBottom: '1.5rem'
               }}>
-                🏆 Ranking de Performance
+                🏆 Ranking - Alunos Mais Estáveis
               </h2>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {terapeutas
-                  .sort((a, b) => b.nota_media - a.nota_media)
+                  .sort((a, b) => a.nota_media_alunos - b.nota_media_alunos) // 🔄 MUDOU: ordenar por nota menor (melhor)
                   .map((terapeuta, index) => (
                     <div 
                       key={terapeuta.terapeuta_id}
@@ -430,10 +436,10 @@ export default function ExecutivePage() {
                           justifyContent: 'center',
                           fontWeight: 'bold',
                           backgroundColor: 
-                            index === 0 ? '#fbbf24' :
-                            index === 1 ? '#9ca3af' :
-                            index === 2 ? '#ea580c' : '#6b7280',
-                          color: index < 3 ? 'black' : 'white'
+                            index === 0 ? '#10b981' :  // Verde para o melhor (nota mais baixa)
+                            index === 1 ? '#fbbf24' :  // Amarelo para segundo
+                            index === 2 ? '#ea580c' : '#6b7280', // Laranja para terceiro
+                          color: 'white'
                         }}>
                           {index + 1}
                         </div>
@@ -453,9 +459,9 @@ export default function ExecutivePage() {
                         </span>
                         <span style={{ 
                           fontWeight: 'bold',
-                          color: getStatusColor(terapeuta.nota_media)
+                          color: getStatusColor(terapeuta.nota_media_alunos)
                         }}>
-                          Nota: {terapeuta.nota_media}
+                          Nota: {terapeuta.nota_media_alunos} ({getStatusText(terapeuta.nota_media_alunos)})
                         </span>
                       </div>
                     </div>

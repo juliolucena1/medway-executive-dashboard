@@ -1,4 +1,4 @@
-// utils/dashboardAnalytics.ts - CORRIGIDO SEM LIMITE DE 1000
+// utils/dashboardAnalytics.ts - VERSÃO COM NOMES REAIS DOS TERAPEUTAS
 import { supabase } from '@/lib/supabase'
 
 export interface DashboardMetrics {
@@ -10,13 +10,30 @@ export interface DashboardMetrics {
 
 export interface TerapeutaStats {
   terapeuta_id: number
+  nome_terapeuta: string
   total_atendimentos: number
   alunos_unicos: number
   nota_media: number
 }
 
+// 🏷️ MAPEAMENTO DOS NOMES DOS TERAPEUTAS
+const NOMES_TERAPEUTAS: Record<number, string> = {
+  1: 'Júlio Lucena',
+  3: 'Bia Bezerra', 
+  4: 'Bia Londres',
+  5: 'Davi Belo',
+  6: 'Carol Gomes',
+  7: 'Dani Matias',
+  10: 'Olga Gomes',
+  11: 'Maria Eduarda Costa'
+}
+
+// Função para obter nome do terapeuta
+export function getNomeTerapeuta(id: number): string {
+  return NOMES_TERAPEUTAS[id] || `Terapeuta ${id}`
+}
+
 // ⚠️ IMPORTANTE: Verifique se 'student_records' é o nome correto da sua tabela no Supabase
-// Se for diferente, substitua todas as ocorrências abaixo pelo nome correto
 
 // Função principal para buscar todas as métricas do dashboard
 export async function getDashboardMetrics(periodo: string = 'trimestre'): Promise<DashboardMetrics> {
@@ -182,6 +199,7 @@ export async function getTerapeutasStats(periodo: string = 'trimestre'): Promise
 
       terapeutasStats.push({
         terapeuta_id: terapeutaId,
+        nome_terapeuta: getNomeTerapeuta(terapeutaId),
         total_atendimentos: atendimentos.length,
         alunos_unicos: alunosUnicosSet.size,
         nota_media: Math.round(notaMedia * 10) / 10
@@ -197,20 +215,25 @@ export async function getTerapeutasStats(periodo: string = 'trimestre'): Promise
   }
 }
 
-// Função auxiliar para calcular data de início baseada no período
+// 📅 FUNÇÃO AUXILIAR ATUALIZADA - Novos períodos incluindo mês atual
 function getDataInicio(periodo: string): string | null {
   const hoje = new Date()
   
   switch (periodo) {
+    case 'mes_atual':
+      // Primeiro dia do mês atual
+      const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+      return inicioMesAtual.toISOString()
+      
+    case 'ultimo_mes':
+      // Primeiro dia do mês passado
+      const inicioMesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+      return inicioMesPassado.toISOString()
+      
     case 'semana':
       const inicioSemana = new Date(hoje)
       inicioSemana.setDate(hoje.getDate() - 7)
       return inicioSemana.toISOString()
-      
-    case 'mes':
-      const inicioMes = new Date(hoje)
-      inicioMes.setMonth(hoje.getMonth() - 1)
-      return inicioMes.toISOString()
       
     case 'trimestre':
       const inicioTrimestre = new Date(hoje)
@@ -239,7 +262,7 @@ export async function getAnaliseIndividual(periodo: string = 'trimestre') {
     
     return terapeutasStats.map(stats => ({
       id: stats.terapeuta_id,
-      nome: `Terapeuta ${stats.terapeuta_id}`, // Você pode buscar o nome real se tiver tabela de terapeutas
+      nome: stats.nome_terapeuta, // 🎯 AGORA USA O NOME REAL
       atendimentos: stats.total_atendimentos,
       alunosUnicos: stats.alunos_unicos,
       notaMedia: stats.nota_media,

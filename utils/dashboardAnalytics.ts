@@ -1,4 +1,4 @@
-// utils/dashboardAnalytics.ts
+// utils/dashboardAnalytics.ts - CORRIGIDO SEM LIMITE DE 1000
 import { supabase } from '@/lib/supabase'
 
 export interface DashboardMetrics {
@@ -26,21 +26,47 @@ export async function getDashboardMetrics(periodo: string = 'trimestre'): Promis
     // Calcular data de início baseada no período
     const dataInicio = getDataInicio(periodo)
     
-    // Query base com filtro de período
+    // Query base com filtro de período - SEM LIMITE para pegar todos os dados
     let query = supabase
       .from('consulta') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
       .select('*')
+      .order('data_consulta', { ascending: false })
     
     if (dataInicio) {
       query = query.gte('data_consulta', dataInicio)
     }
-    
-    const { data: consultas, error } = await query
-    
-    if (error) {
-      console.error('❌ Erro ao buscar dados:', error)
-      throw error
+
+    // 🔥 BUSCAR TODOS OS DADOS SEM LIMITE
+    console.log('📊 Buscando TODOS os registros (sem limite de 1000)...')
+    let allData: any[] = []
+    let from = 0
+    const limit = 1000 // Buscar em lotes de 1000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data: batch, error } = await query.range(from, from + limit - 1)
+      
+      if (error) {
+        console.error('❌ Erro ao buscar dados:', error)
+        throw error
+      }
+
+      if (batch && batch.length > 0) {
+        allData = [...allData, ...batch]
+        console.log(`📦 Lote ${Math.floor(from/limit) + 1}: ${batch.length} registros (total: ${allData.length})`)
+        
+        // Se retornou menos que o limit, chegamos ao fim
+        if (batch.length < limit) {
+          hasMore = false
+        } else {
+          from += limit
+        }
+      } else {
+        hasMore = false
+      }
     }
+
+    const consultas = allData
 
     if (!consultas || consultas.length === 0) {
       console.log('⚠️ Nenhum dado encontrado para o período')
@@ -52,7 +78,7 @@ export async function getDashboardMetrics(periodo: string = 'trimestre'): Promis
       }
     }
 
-    console.log('✅ Dados encontrados:', consultas.length, 'registros')
+    console.log('✅ Total de registros processados:', consultas.length)
 
     // 1. Total de Atendimentos
     const totalAtendimentos = consultas.length
@@ -98,14 +124,36 @@ export async function getTerapeutasStats(periodo: string = 'trimestre'): Promise
     let query = supabase
       .from('consulta') // ⚠️ NOME DA TABELA - VERIFICAR SE ESTÁ CORRETO
       .select('terapeuta_id, aluno_id, nota_terapeuta, data_consulta')
+      .order('data_consulta', { ascending: false })
     
     if (dataInicio) {
       query = query.gte('data_consulta', dataInicio)
     }
-    
-    const { data: consultas, error } = await query
-    
-    if (error) throw error
+
+    // 🔥 BUSCAR TODOS OS DADOS SEM LIMITE
+    let allData: any[] = []
+    let from = 0
+    const limit = 1000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data: batch, error } = await query.range(from, from + limit - 1)
+      
+      if (error) throw error
+
+      if (batch && batch.length > 0) {
+        allData = [...allData, ...batch]
+        if (batch.length < limit) {
+          hasMore = false
+        } else {
+          from += limit
+        }
+      } else {
+        hasMore = false
+      }
+    }
+
+    const consultas = allData
     if (!consultas) return []
 
     // Agrupar por terapeuta

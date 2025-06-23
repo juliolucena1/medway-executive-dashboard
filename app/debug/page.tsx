@@ -40,6 +40,12 @@ export default function DebugPage() {
           const metricas = await getDashboardMetrics('trimestre')
           setResultados({ tipo: 'Métricas Dashboard', dados: metricas })
           break
+
+        case 'todos_dados':
+          console.log('🧪 Testando TODOS os dados (sem limite)...')
+          const todosDados = await getDashboardMetrics() // Sem período = todos os dados
+          setResultados({ tipo: 'Teste TODOS os Dados', dados: todosDados })
+          break
           
         default:
           setResultados({ tipo: 'Erro', dados: 'Tipo de teste desconhecido' })
@@ -107,7 +113,7 @@ export default function DebugPage() {
         {/* Botões de Teste */}
         <div className="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
           <h2 className="text-xl font-semibold mb-4">🧪 Testes Disponíveis</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             
             <button
               onClick={() => executarTeste('conexao')}
@@ -139,6 +145,14 @@ export default function DebugPage() {
               className="p-4 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-all disabled:opacity-50"
             >
               📊 Testar Métricas
+            </button>
+
+            <button
+              onClick={() => executarTeste('todos_dados')}
+              disabled={loading}
+              className="p-4 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-all disabled:opacity-50"
+            >
+              🔥 TODOS os Dados
             </button>
             
           </div>
@@ -224,6 +238,26 @@ export default function DebugPage() {
               {resultados.tipo === 'Métricas Dashboard' && (
                 <div className="text-green-400">
                   ✅ Métricas calculadas com sucesso! O dashboard deve estar funcionando.
+                </div>
+              )}
+
+              {resultados.tipo === 'Teste TODOS os Dados' && (
+                <div>
+                  {resultados.dados.totalAtendimentos > 1000 ? (
+                    <div className="text-green-400">
+                      🎉 EXCELENTE! Limite de 1000 registros foi corrigido!
+                      <br />
+                      📊 Total encontrado: {resultados.dados.totalAtendimentos} atendimentos
+                      <br />
+                      💡 O dashboard agora mostra todos os dados reais!
+                    </div>
+                  ) : (
+                    <div className="text-yellow-400">
+                      ⚠️ Ainda parece limitado a {resultados.dados.totalAtendimentos} registros
+                      <br />
+                      💡 Verifique se o código foi atualizado corretamente
+                    </div>
+                  )}
                 </div>
               )}
 

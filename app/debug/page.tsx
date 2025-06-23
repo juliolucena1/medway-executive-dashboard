@@ -1,4 +1,4 @@
-// app/debug/page.tsx - Página para testar e debugar a conexão
+// app/debug/page.tsx - Página de Debug (sem lucide-react)
 'use client'
 
 import { useState } from 'react'
@@ -146,7 +146,7 @@ export default function DebugPage() {
           {loading && (
             <div className="mt-4 text-center">
               <div className="inline-flex items-center gap-2 text-purple-400">
-                <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                <span className="animate-spin">⏳</span>
                 Executando teste...
               </div>
             </div>

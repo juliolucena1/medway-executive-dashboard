@@ -50,17 +50,22 @@ export default function Dashboard() {
       minHeight: '100vh',
       backgroundColor: '#111827',
       color: 'white',
-      padding: '2rem',
+      padding: '1rem',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
-      <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+      <div style={{ 
+        maxWidth: '1280px', 
+        margin: '0 auto',
+        width: '100%'
+      }}>
         
         {/* Header */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
           marginBottom: '2rem',
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          gap: '1rem'
         }}>
           <div style={{
             width: '64px',
@@ -70,26 +75,27 @@ export default function Dashboard() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: '1rem',
-            fontSize: '1.5rem'
+            fontSize: '1.5rem',
+            flexShrink: 0
           }}>
             📊
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: '200px' }}>
             <h1 style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
               fontWeight: 'bold',
               background: 'linear-gradient(to right, #c084fc, #60a5fa)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               color: 'transparent',
-              margin: 0
+              margin: 0,
+              lineHeight: 1.2
             }}>
               MEDWAY Executive
             </h1>
             <p style={{
               color: '#9ca3af',
-              fontSize: '1.125rem',
+              fontSize: 'clamp(0.875rem, 2.5vw, 1.125rem)',
               margin: '0.5rem 0 0 0'
             }}>
               Dashboard de Análise de Produtividade dos Terapeutas
@@ -101,9 +107,10 @@ export default function Dashboard() {
         <div style={{ 
           display: 'flex', 
           flexWrap: 'wrap', 
-          gap: '1rem', 
+          gap: '0.75rem', 
           marginBottom: '2rem',
-          alignItems: 'center' 
+          alignItems: 'center',
+          justifyContent: 'flex-start'
         }}>
           {/* Seletores de Período */}
           {periodos.map((p) => (
@@ -111,14 +118,16 @@ export default function Dashboard() {
               key={p.valor}
               onClick={() => setPeriodo(p.valor)}
               style={{
-                padding: '0.75rem 1.5rem',
+                padding: '0.75rem 1.25rem',
                 borderRadius: '12px',
                 fontWeight: '500',
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 backgroundColor: periodo === p.valor ? '#7c3aed' : '#374151',
-                color: periodo === p.valor ? 'white' : '#d1d5db'
+                color: periodo === p.valor ? 'white' : '#d1d5db',
+                fontSize: '0.875rem',
+                whiteSpace: 'nowrap'
               }}
             >
               {p.label}
@@ -130,7 +139,7 @@ export default function Dashboard() {
             onClick={carregarDadosReais}
             disabled={loading}
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.75rem 1.25rem',
               backgroundColor: loading ? '#6b7280' : '#059669',
               borderRadius: '12px',
               fontWeight: '500',
@@ -139,7 +148,9 @@ export default function Dashboard() {
               cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              fontSize: '0.875rem',
+              whiteSpace: 'nowrap'
             }}
           >
             <span style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}>
@@ -152,13 +163,16 @@ export default function Dashboard() {
           <a
             href="/debug"
             style={{
-              padding: '0.75rem 1.5rem',
+              padding: '0.75rem 1.25rem',
               backgroundColor: '#d97706',
               borderRadius: '12px',
               fontWeight: '500',
               color: 'white',
               textDecoration: 'none',
-              display: 'inline-block'
+              display: 'inline-flex',
+              alignItems: 'center',
+              fontSize: '0.875rem',
+              whiteSpace: 'nowrap'
             }}
           >
             🔧 Debug
@@ -182,9 +196,10 @@ export default function Dashboard() {
         {/* Cards de Métricas */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1.5rem',
-          marginBottom: '2rem'
+          marginBottom: '2rem',
+          width: '100%'
         }}>
           
           {/* Total de Atendimentos */}
@@ -193,7 +208,9 @@ export default function Dashboard() {
             borderRadius: '16px',
             padding: '1.5rem',
             border: '1px solid #374151',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             <h3 style={{
               color: '#d1d5db',
@@ -204,10 +221,11 @@ export default function Dashboard() {
               Total de Atendimentos
             </h3>
             <div style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
               color: '#c084fc',
-              margin: '0.25rem 0'
+              margin: '0.25rem 0',
+              lineHeight: 1
             }}>
               {metrics.totalAtendimentos.toLocaleString()}
             </div>
@@ -225,7 +243,9 @@ export default function Dashboard() {
             borderRadius: '16px',
             padding: '1.5rem',
             border: '1px solid #374151',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             <h3 style={{
               color: '#d1d5db',
@@ -236,10 +256,11 @@ export default function Dashboard() {
               Alunos Únicos
             </h3>
             <div style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
               color: '#10b981',
-              margin: '0.25rem 0'
+              margin: '0.25rem 0',
+              lineHeight: 1
             }}>
               {metrics.alunosUnicos.toLocaleString()}
             </div>
@@ -257,7 +278,9 @@ export default function Dashboard() {
             borderRadius: '16px',
             padding: '1.5rem',
             border: '1px solid #374151',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             <h3 style={{
               color: '#d1d5db',
@@ -268,10 +291,11 @@ export default function Dashboard() {
               Nota Média da Equipe
             </h3>
             <div style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
               color: '#fbbf24',
-              margin: '0.25rem 0'
+              margin: '0.25rem 0',
+              lineHeight: 1
             }}>
               {metrics.notaMediaEquipe}
             </div>
@@ -289,7 +313,9 @@ export default function Dashboard() {
             borderRadius: '16px',
             padding: '1.5rem',
             border: '1px solid #374151',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             <h3 style={{
               color: '#d1d5db',
@@ -300,10 +326,11 @@ export default function Dashboard() {
               Terapeutas Ativos
             </h3>
             <div style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
               color: '#60a5fa',
-              margin: '0.25rem 0'
+              margin: '0.25rem 0',
+              lineHeight: 1
             }}>
               {metrics.terapeutasAtivos}
             </div>
@@ -323,7 +350,9 @@ export default function Dashboard() {
           borderRadius: '16px',
           padding: '2rem',
           border: '1px solid #374151',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <div style={{
             display: 'flex',
@@ -334,7 +363,7 @@ export default function Dashboard() {
             gap: '1rem'
           }}>
             <h2 style={{
-              fontSize: '1.5rem',
+              fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
               fontWeight: 'bold',
               color: 'white',
               margin: 0
@@ -349,7 +378,8 @@ export default function Dashboard() {
                 borderRadius: '8px',
                 fontWeight: '500',
                 color: 'white',
-                textDecoration: 'none'
+                textDecoration: 'none',
+                whiteSpace: 'nowrap'
               }}
             >
               Ver Detalhes →
@@ -357,7 +387,7 @@ export default function Dashboard() {
           </div>
           
           <div style={{ color: '#9ca3af' }}>
-            <p style={{ margin: 0 }}>
+            <p style={{ margin: 0, lineHeight: 1.5 }}>
               Clique em "Ver Detalhes" para acessar a análise completa de cada terapeuta, 
               incluindo métricas individuais de performance e produtividade.
             </p>
@@ -386,19 +416,30 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* CSS para animação */}
+        {/* CSS para animação e responsividade */}
         <style>{`
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
           }
           
-          @media (max-width: 768px) {
-            div[style*="fontSize: '2.5rem'"] {
-              font-size: 1.8rem !important;
+          @media (max-width: 640px) {
+            div[style*="padding: '1rem'"] {
+              padding: 0.5rem !important;
             }
+            
+            div[style*="gap: '1.5rem'"] {
+              gap: 1rem !important;
+            }
+            
             div[style*="padding: '2rem'"] {
               padding: 1rem !important;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            div[style*="gridTemplateColumns"] {
+              grid-template-columns: 1fr !important;
             }
           }
         `}</style>

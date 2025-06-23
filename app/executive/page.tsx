@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface TerapeutaStats {
   terapeuta_id: number
@@ -10,109 +11,99 @@ interface TerapeutaStats {
   nota_media_alunos: number
 }
 
-// 📊 DADOS DE FALLBACK (baseados na imagem que você mostrou)
-const DADOS_FALLBACK: TerapeutaStats[] = [
-  {
-    terapeuta_id: 3,
-    nome_terapeuta: 'Bia Bezerra',
-    total_atendimentos: 69,
-    alunos_unicos: 59,
-    nota_media_alunos: 9.6
-  },
-  {
-    terapeuta_id: 6,
-    nome_terapeuta: 'Carol Gomes',
-    total_atendimentos: 32,
-    alunos_unicos: 28,
-    nota_media_alunos: 7.2
-  },
-  {
-    terapeuta_id: 5,
-    nome_terapeuta: 'Davi Belo',
-    total_atendimentos: 25,
-    alunos_unicos: 21,
-    nota_media_alunos: 11.6
-  },
-  {
-    terapeuta_id: 1,
-    nome_terapeuta: 'Júlio Lucena',
-    total_atendimentos: 23,
-    alunos_unicos: 23,
-    nota_media_alunos: 6.7
-  },
-  {
-    terapeuta_id: 7,
-    nome_terapeuta: 'Dani Matias',
-    total_atendimentos: 19,
-    alunos_unicos: 15,
-    nota_media_alunos: 7.1
-  },
-  {
-    terapeuta_id: 11,
-    nome_terapeuta: 'Maria Eduarda Costa',
-    total_atendimentos: 15,
-    alunos_unicos: 13,
-    nota_media_alunos: 2.7
-  },
-  {
-    terapeuta_id: 10,
-    nome_terapeuta: 'Olga Gomes',
-    total_atendimentos: 12,
-    alunos_unicos: 10,
-    nota_media_alunos: 4.5
-  },
-  {
-    terapeuta_id: 4,
-    nome_terapeuta: 'Bia Londres',
-    total_atendimentos: 8,
-    alunos_unicos: 7,
-    nota_media_alunos: 12.3
-  }
-]
-
 export default function ExecutivePage() {
-  const [terapeutas, setTerapeutas] = useState<TerapeutaStats[]>(DADOS_FALLBACK)
-  const [periodo, setPeriodo] = useState('mes_atual')
-  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // 🔧 CORREÇÃO 1: Estado sincronizado com URL e Dashboard principal
+  const [periodo, setPeriodo] = useState(() => {
+    return searchParams.get('periodo') || 'mes_atual'
+  })
+  
+  const [terapeutas, setTerapeutas] = useState<TerapeutaStats[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [usandoFallback, setUsandoFallback] = useState(true)
+  const [dataUltimaAtualizacao, setDataUltimaAtualizacao] = useState<Date>(new Date())
 
-  // Função para carregar dados reais
-  const carregarDadosReais = async () => {
+  // 🔧 CORREÇÃO 2: Função que carrega dados REAIS do Supabase
+  const carregarDados = async (novoPeriodo?: string) => {
+    const periodoParaUsar = novoPeriodo || periodo
+    
     try {
       setLoading(true)
       setError(null)
       
-      console.log('🔄 Tentando carregar dados reais para:', periodo)
-      const { getTerapeutasStats } = await import('@/utils/dashboardAnalytics')
-      const dadosReais = await getTerapeutasStats(periodo)
+      console.log('🔄 [Executive] Carregando dados dos terapeutas para período:', periodoParaUsar)
       
-      if (dadosReais && dadosReais.length > 0) {
-        console.log('✅ Dados reais carregados:', dadosReais.length, 'terapeutas')
-        setTerapeutas(dadosReais)
-        setUsandoFallback(false)
+      const { getTerapeutasStats } = await import('@/utils/dashboardAnalytics')
+      const dadosTerapeutas = await getTerapeutasStats(periodoParaUsar)
+      
+      console.log('✅ [Executive] Dados dos terapeutas carregados:', dadosTerapeutas)
+      
+      if (dadosTerapeutas && dadosTerapeutas.length > 0) {
+        setTerapeutas(dadosTerapeutas)
+        setDataUltimaAtualizacao(new Date())
+        setError(null)
       } else {
-        console.log('⚠️ Dados reais vazios, usando fallback')
-        setTerapeutas(DADOS_FALLBACK)
-        setUsandoFallback(true)
+        console.log('⚠️ [Executive] Nenhum dado encontrado, usando fallback')
+        setError('Nenhum dado encontrado para este período')
+        // 🔧 CORREÇÃO 3: Fallback apenas se não houver dados reais
+        setTerapeutas([
+          {
+            terapeuta_id: 1,
+            nome_terapeuta: 'Dados não encontrados',
+            total_atendimentos: 0,
+            alunos_unicos: 0,
+            nota_media_alunos: 0
+          }
+        ])
       }
       
-    } catch (err) {
-      console.error('❌ Erro ao carregar dados reais:', err)
-      setError('Erro ao conectar com Supabase - usando dados locais')
-      setTerapeutas(DADOS_FALLBACK)
-      setUsandoFallback(true)
+    } catch (err: any) {
+      console.error('❌ [Executive] Erro ao carregar dados:', err)
+      setError(`Erro: ${err.message || 'Falha na conexão'}`)
+      
+      // 🔧 CORREÇÃO 4: Fallback realista com aviso claro
+      setTerapeutas([
+        {
+          terapeuta_id: 999,
+          nome_terapeuta: '⚠️ Erro de Conexão',
+          total_atendimentos: 0,
+          alunos_unicos: 0,
+          nota_media_alunos: 0
+        }
+      ])
     } finally {
       setLoading(false)
     }
   }
 
-  // Auto-carregar só quando período muda (não no primeiro render)
+  // 🔧 CORREÇÃO 5: Função que muda período E atualiza URL
+  const mudarPeriodo = async (novoPeriodo: string) => {
+    setPeriodo(novoPeriodo)
+    
+    // Atualizar URL para manter sincronização
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    newSearchParams.set('periodo', novoPeriodo)
+    router.push(`/executive?${newSearchParams.toString()}`)
+    
+    // Carregar dados para o novo período
+    await carregarDados(novoPeriodo)
+  }
+
+  // 🔧 CORREÇÃO 6: useEffect que reage a mudanças na URL
   useEffect(() => {
-    if (periodo !== 'mes_atual') {
-      carregarDadosReais()
+    const periodoURL = searchParams.get('periodo')
+    if (periodoURL && periodoURL !== periodo) {
+      setPeriodo(periodoURL)
+      carregarDados(periodoURL)
     }
-  }, [periodo])
+  }, [searchParams])
+
+  // 🔧 CORREÇÃO 7: Carregar dados iniciais
+  useEffect(() => {
+    carregarDados()
+  }, []) // Só roda uma vez
 
   const periodos = [
     { valor: 'mes_atual', label: 'Mês Atual' },
@@ -121,7 +112,7 @@ export default function ExecutivePage() {
     { valor: 'semestre', label: 'Último Semestre' }
   ]
 
-  // Funções para interpretar nota dos alunos (0-20, menor é melhor)
+  // 🔧 CORREÇÃO 8: Funções de interpretação das notas corrigidas
   const getStatusColor = (notaAlunos: number) => {
     if (notaAlunos <= 5) return '#10b981'   // Verde - alunos estáveis
     if (notaAlunos <= 10) return '#fbbf24'  // Amarelo - situação média
@@ -188,25 +179,12 @@ export default function ExecutivePage() {
               }}>
                 Performance e produtividade detalhada por terapeuta
               </p>
-              <div style={{
-                marginTop: '0.5rem',
-                padding: '0.75rem',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid #3b82f6',
-                borderRadius: '8px',
-                fontSize: '0.875rem'
-              }}>
-                <span style={{ color: '#60a5fa', fontWeight: '500' }}>💡 Escala de Notas:</span>
-                <span style={{ color: '#d1d5db', marginLeft: '0.5rem' }}>
-                  0-5: Excelente (alunos estáveis) • 6-10: Bom • 11-15: Atenção • 16-20: Crítico
-                </span>
-              </div>
             </div>
           </div>
           
-          {/* Botão Voltar */}
+          {/* 🔧 CORREÇÃO 9: Botão Voltar mantém período */}
           <a 
-            href="/"
+            href={`/?periodo=${periodo}`}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: '#374151',
@@ -220,36 +198,63 @@ export default function ExecutivePage() {
           </a>
         </div>
 
-        {/* Status e Botões */}
+        {/* 🔧 CORREÇÃO 10: Informações de Escala sempre visíveis */}
+        <div style={{
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid #3b82f6',
+          borderRadius: '12px',
+          padding: '1rem',
+          marginBottom: '2rem',
+          color: '#93c5fd'
+        }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#60a5fa' }}>
+            📊 Como interpretar as notas dos alunos:
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.875rem' }}>
+            <span><span style={{color: '#10b981'}}>●</span> 0-5: Excelente (alunos muito estáveis)</span>
+            <span><span style={{color: '#fbbf24'}}>●</span> 6-10: Bom (alunos estáveis)</span>
+            <span><span style={{color: '#ea580c'}}>●</span> 11-15: Atenção (precisam acompanhamento)</span>
+            <span><span style={{color: '#ef4444'}}>●</span> 16-20: Crítico (situação preocupante)</span>
+          </div>
+        </div>
+
+        {/* Seletores de Período */}
         <div style={{ 
           display: 'flex', 
           flexWrap: 'wrap', 
           gap: '1rem', 
           marginBottom: '2rem' 
         }}>
-          {/* Seletores de Período */}
           {periodos.map((p) => (
             <button
               key={p.valor}
-              onClick={() => setPeriodo(p.valor)}
+              onClick={() => mudarPeriodo(p.valor)}
+              disabled={loading}
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '12px',
                 fontWeight: '500',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s',
                 backgroundColor: periodo === p.valor ? '#7c3aed' : '#374151',
-                color: periodo === p.valor ? 'white' : '#d1d5db'
+                color: periodo === p.valor ? 'white' : '#d1d5db',
+                opacity: loading ? 0.6 : 1,
+                position: 'relative'
               }}
             >
+              {loading && periodo === p.valor && (
+                <span style={{ 
+                  marginRight: '0.5rem',
+                  animation: 'spin 1s linear infinite' 
+                }}>⏳</span>
+              )}
               {p.label}
             </button>
           ))}
           
-          {/* Botão para tentar carregar dados reais */}
           <button
-            onClick={carregarDadosReais}
+            onClick={() => carregarDados()}
             disabled={loading}
             style={{
               padding: '0.75rem 1.5rem',
@@ -267,49 +272,64 @@ export default function ExecutivePage() {
             <span style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}>
               {loading ? '⏳' : '🔄'}
             </span>
-            {loading ? 'Carregando...' : 'Conectar Supabase'}
+            Atualizar Dados
           </button>
         </div>
 
-        {/* Status */}
-        {error && (
-          <div style={{
-            backgroundColor: 'rgba(217, 119, 6, 0.2)',
-            border: '1px solid #d97706',
-            borderRadius: '12px',
-            padding: '1rem',
-            marginBottom: '2rem',
-            color: '#fcd34d'
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {usandoFallback && !loading && (
-          <div style={{
-            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-            border: '1px solid #3b82f6',
-            borderRadius: '12px',
-            padding: '1rem',
-            marginBottom: '2rem',
-            color: '#93c5fd'
-          }}>
-            💡 Mostrando dados de exemplo. Clique em "Conectar Supabase" para dados reais.
-          </div>
-        )}
-
-        {/* Loading */}
+        {/* 🔧 CORREÇÃO 11: Loading/Error states melhorados */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '3rem',
+            backgroundColor: 'rgba(31, 41, 55, 0.5)',
+            borderRadius: '12px',
+            marginBottom: '2rem'
+          }}>
             <div style={{ 
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '0.5rem', 
-              color: '#c084fc' 
+              color: '#c084fc',
+              fontSize: '1.125rem'
             }}>
               <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
-              Carregando dados dos terapeutas...
+              Carregando dados dos terapeutas do Supabase...
             </div>
+            <p style={{ color: '#9ca3af', margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
+              Período: {periodos.find(p => p.valor === periodo)?.label}
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid #ef4444',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <span>⚠️</span>
+              <strong style={{ color: '#fca5a5' }}>Problema de Conexão</strong>
+            </div>
+            <p style={{ color: '#fecaca', margin: '0 0 0.5rem 0', fontSize: '0.875rem' }}>
+              {error}
+            </p>
+            <button 
+              onClick={() => carregarDados()}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#ef4444',
+                border: 'none',
+                borderRadius: '6px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+            >
+              🔄 Tentar Conectar Novamente
+            </button>
           </div>
         )}
 
@@ -330,7 +350,11 @@ export default function ExecutivePage() {
                     borderRadius: '16px',
                     padding: '1.5rem',
                     border: '1px solid #374151',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    // 🔧 CORREÇÃO 12: Destaque visual para dados problemáticos
+                    ...(terapeuta.nome_terapeuta.includes('Erro') || terapeuta.nome_terapeuta.includes('não encontrados') 
+                        ? { border: '2px solid #ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }
+                        : {})
                   }}
                 >
                   <div style={{
@@ -347,16 +371,18 @@ export default function ExecutivePage() {
                     }}>
                       {terapeuta.nome_terapeuta}
                     </h3>
-                    <span style={{
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: '999px',
-                      fontSize: '0.75rem',
-                      fontWeight: '500',
-                      color: 'white',
-                      backgroundColor: getStatusColor(terapeuta.nota_media_alunos)
-                    }}>
-                      {getStatusText(terapeuta.nota_media_alunos)}
-                    </span>
+                    {terapeuta.total_atendimentos > 0 && (
+                      <span style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '999px',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        color: 'white',
+                        backgroundColor: getStatusColor(terapeuta.nota_media_alunos)
+                      }}>
+                        {getStatusText(terapeuta.nota_media_alunos)}
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -397,167 +423,175 @@ export default function ExecutivePage() {
                     </div>
 
                     {/* Atendimentos por Aluno */}
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      paddingTop: '0.5rem',
-                      borderTop: '1px solid #374151'
-                    }}>
-                      <span style={{ color: '#9ca3af' }}>Atend./Aluno:</span>
-                      <span style={{ 
-                        color: '#60a5fa', 
-                        fontWeight: 'bold' 
+                    {terapeuta.alunos_unicos > 0 && (
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        paddingTop: '0.5rem',
+                        borderTop: '1px solid #374151'
                       }}>
-                        {(terapeuta.total_atendimentos / terapeuta.alunos_unicos).toFixed(1)}
-                      </span>
-                    </div>
+                        <span style={{ color: '#9ca3af' }}>Atend./Aluno:</span>
+                        <span style={{ 
+                          color: '#60a5fa', 
+                          fontWeight: 'bold' 
+                        }}>
+                          {(terapeuta.total_atendimentos / terapeuta.alunos_unicos).toFixed(1)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Resumo Estatístico */}
-            <div style={{
-              background: 'linear-gradient(135deg, #1f2937, #111827)',
-              borderRadius: '16px',
-              padding: '2rem',
-              border: '1px solid #374151',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              marginBottom: '2rem'
-            }}>
-              <h2 style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                color: 'white',
-                marginBottom: '1.5rem'
-              }}>
-                📊 Resumo Estatístico {usandoFallback ? '(Dados de Exemplo)' : ''}
-              </h2>
-              
+            {terapeutas.length > 0 && terapeutas[0].total_atendimentos > 0 && (
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1.5rem'
+                background: 'linear-gradient(135deg, #1f2937, #111827)',
+                borderRadius: '16px',
+                padding: '2rem',
+                border: '1px solid #374151',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                marginBottom: '2rem'
               }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '2rem',
-                    fontWeight: 'bold',
-                    color: '#c084fc',
-                    marginBottom: '0.5rem'
-                  }}>
-                    {terapeutas.reduce((sum, t) => sum + t.total_atendimentos, 0).toLocaleString()}
+                <h2 style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 'bold',
+                  color: 'white',
+                  marginBottom: '1.5rem'
+                }}>
+                  📊 Resumo Estatístico - {periodos.find(p => p.valor === periodo)?.label}
+                </h2>
+                
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '1.5rem'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: 'bold',
+                      color: '#c084fc',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {terapeutas.reduce((sum, t) => sum + t.total_atendimentos, 0).toLocaleString()}
+                    </div>
+                    <div style={{ color: '#9ca3af' }}>Total de Atendimentos</div>
                   </div>
-                  <div style={{ color: '#9ca3af' }}>Total de Atendimentos</div>
-                </div>
 
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '2rem',
-                    fontWeight: 'bold',
-                    color: '#10b981',
-                    marginBottom: '0.5rem'
-                  }}>
-                    {terapeutas.reduce((sum, t) => sum + t.alunos_unicos, 0).toLocaleString()}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: 'bold',
+                      color: '#10b981',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {terapeutas.reduce((sum, t) => sum + t.alunos_unicos, 0).toLocaleString()}
+                    </div>
+                    <div style={{ color: '#9ca3af' }}>Total de Alunos Únicos</div>
                   </div>
-                  <div style={{ color: '#9ca3af' }}>Total de Alunos Únicos</div>
-                </div>
 
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '2rem',
-                    fontWeight: 'bold',
-                    color: '#fbbf24',
-                    marginBottom: '0.5rem'
-                  }}>
-                    {terapeutas.length > 0 
-                      ? (terapeutas.reduce((sum, t) => sum + t.nota_media_alunos, 0) / terapeutas.length).toFixed(1)
-                      : '0'
-                    }
-                  </div>
-                  <div style={{ color: '#9ca3af' }}>Nota Média Geral dos Alunos</div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                    (0=estável, 20=crítico)
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: 'bold',
+                      color: '#fbbf24',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {terapeutas.length > 0 
+                        ? (terapeutas.reduce((sum, t) => sum + t.nota_media_alunos, 0) / terapeutas.length).toFixed(1)
+                        : '0'
+                      }
+                    </div>
+                    <div style={{ color: '#9ca3af' }}>Nota Média Geral dos Alunos</div>
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                      (0=estável, 20=crítico)
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Ranking */}
-            <div style={{
-              background: 'linear-gradient(135deg, #1f2937, #111827)',
-              borderRadius: '16px',
-              padding: '2rem',
-              border: '1px solid #374151',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}>
-              <h2 style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                color: 'white',
-                marginBottom: '1.5rem'
+            {/* 🔧 CORREÇÃO 13: Ranking corrigido - melhor terapeuta = menor nota */}
+            {terapeutas.length > 0 && terapeutas[0].total_atendimentos > 0 && (
+              <div style={{
+                background: 'linear-gradient(135deg, #1f2937, #111827)',
+                borderRadius: '16px',
+                padding: '2rem',
+                border: '1px solid #374151',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
               }}>
-                🏆 Ranking - Alunos Mais Estáveis
-              </h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {terapeutas
-                  .sort((a, b) => a.nota_media_alunos - b.nota_media_alunos) // Ordenar por nota menor (melhor)
-                  .map((terapeuta, index) => (
-                    <div 
-                      key={terapeuta.terapeuta_id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '1rem',
-                        backgroundColor: 'rgba(55, 65, 81, 0.5)',
-                        borderRadius: '8px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
+                <h2 style={{
+                  fontSize: '1.5rem',
+                  fontWeight: 'bold',
+                  color: 'white',
+                  marginBottom: '1.5rem'
+                }}>
+                  🏆 Ranking - Alunos Mais Estáveis
+                </h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {terapeutas
+                    .filter(t => t.total_atendimentos > 0)
+                    .sort((a, b) => a.nota_media_alunos - b.nota_media_alunos) // 🔧 Menor nota = melhor
+                    .map((terapeuta, index) => (
+                      <div 
+                        key={terapeuta.terapeuta_id}
+                        style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold',
-                          backgroundColor: 
-                            index === 0 ? '#10b981' :  // Verde para o melhor (nota mais baixa)
-                            index === 1 ? '#fbbf24' :  // Amarelo para segundo
-                            index === 2 ? '#ea580c' : '#6b7280', // Laranja para terceiro
-                          color: 'white'
-                        }}>
-                          {index + 1}
+                          justifyContent: 'space-between',
+                          padding: '1rem',
+                          backgroundColor: 'rgba(55, 65, 81, 0.5)',
+                          borderRadius: '8px',
+                          border: index === 0 ? '2px solid #10b981' : '1px solid #374151'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            backgroundColor: 
+                              index === 0 ? '#10b981' :  // Verde para o melhor
+                              index === 1 ? '#fbbf24' :  // Amarelo para segundo
+                              index === 2 ? '#ea580c' : '#6b7280', // Laranja para terceiro
+                            color: 'white'
+                          }}>
+                            {index + 1}
+                          </div>
+                          <span style={{ fontWeight: '500' }}>
+                            {terapeuta.nome_terapeuta}
+                          </span>
                         </div>
-                        <span style={{ fontWeight: '500' }}>
-                          {terapeuta.nome_terapeuta}
-                        </span>
-                      </div>
-                      
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '1.5rem', 
-                        fontSize: '0.875rem' 
-                      }}>
-                        <span style={{ color: '#9ca3af' }}>
-                          {terapeuta.total_atendimentos} atendimentos
-                        </span>
-                        <span style={{ 
-                          fontWeight: 'bold',
-                          color: getStatusColor(terapeuta.nota_media_alunos)
+                        
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '1.5rem', 
+                          fontSize: '0.875rem' 
                         }}>
-                          Nota: {terapeuta.nota_media_alunos} ({getStatusText(terapeuta.nota_media_alunos)})
-                        </span>
+                          <span style={{ color: '#9ca3af' }}>
+                            {terapeuta.total_atendimentos} atendimentos
+                          </span>
+                          <span style={{ 
+                            fontWeight: 'bold',
+                            color: getStatusColor(terapeuta.nota_media_alunos)
+                          }}>
+                            Nota: {terapeuta.nota_media_alunos} ({getStatusText(terapeuta.nota_media_alunos)})
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
 
@@ -574,7 +608,11 @@ export default function ExecutivePage() {
             </span>
           </p>
           <p style={{ margin: '0.25rem 0' }}>
-            {usandoFallback ? 'Dados de exemplo' : 'Dados reais do Supabase'} • {new Date().toLocaleString('pt-BR')}
+            Dados atualizados em: {dataUltimaAtualizacao.toLocaleString('pt-BR')}
+          </p>
+          <p style={{ margin: '0.25rem 0', fontSize: '0.75rem' }}>
+            {error ? '⚠️ Usando dados de fallback - verificar conexão Supabase' : 
+             '✅ Conectado ao Supabase - dados em tempo real'}
           </p>
         </div>
 

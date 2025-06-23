@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 interface TerapeutaStats {
   terapeuta_id: number
+  nome_terapeuta: string
   total_atendimentos: number
   alunos_unicos: number
   nota_media: number
@@ -11,7 +12,7 @@ interface TerapeutaStats {
 
 export default function ExecutivePage() {
   const [terapeutas, setTerapeutas] = useState<TerapeutaStats[]>([])
-  const [periodo, setPeriodo] = useState('trimestre')
+  const [periodo, setPeriodo] = useState('mes_atual')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,11 +42,10 @@ export default function ExecutivePage() {
   }, [periodo])
 
   const periodos = [
-    { valor: 'semana', label: 'Última Semana' },
-    { valor: 'mes', label: 'Último Mês' },
+    { valor: 'mes_atual', label: 'Mês Atual' },
+    { valor: 'ultimo_mes', label: 'Último Mês' },
     { valor: 'trimestre', label: 'Último Trimestre' },
-    { valor: 'semestre', label: 'Último Semestre' },
-    { valor: 'ano', label: 'Último Ano' }
+    { valor: 'semestre', label: 'Último Semestre' }
   ]
 
   const getStatusColor = (nota: number) => {
@@ -252,7 +252,7 @@ export default function ExecutivePage() {
                       color: 'white',
                       margin: 0
                     }}>
-                      Terapeuta {terapeuta.terapeuta_id}
+                      {terapeuta.nome_terapeuta}
                     </h3>
                     <span style={{
                       padding: '0.25rem 0.75rem',
@@ -438,7 +438,7 @@ export default function ExecutivePage() {
                           {index + 1}
                         </div>
                         <span style={{ fontWeight: '500' }}>
-                          Terapeuta {terapeuta.terapeuta_id}
+                          {terapeuta.nome_terapeuta}
                         </span>
                       </div>
                       

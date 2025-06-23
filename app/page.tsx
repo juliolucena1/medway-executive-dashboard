@@ -2,17 +2,22 @@
 
 import { useState, useEffect } from 'react'
 
-// Dados que sabemos que existem
+// Dados que sabemos que existem (valores corrigidos)
 const DADOS_REAIS = {
   totalAtendimentos: 1714,
   alunosUnicos: 625,
-  notaMediaEquipe: 8.4,
+  notaMediaAlunos: 8.4, // 🔄 MUDOU: agora é nota dos alunos (0-20, menor é melhor)
   terapeutasAtivos: 8
 }
 
 export default function Dashboard() {
-  const [metrics, setMetrics] = useState(DADOS_REAIS)
-  const [periodo, setPeriodo] = useState('trimestre')
+  const [metrics, setMetrics] = useState({
+    totalAtendimentos: DADOS_REAIS.totalAtendimentos,
+    alunosUnicos: DADOS_REAIS.alunosUnicos,
+    notaMediaAlunos: DADOS_REAIS.notaMediaAlunos, // 🔄 MUDOU
+    terapeutasAtivos: DADOS_REAIS.terapeutasAtivos
+  })
+  const [periodo, setPeriodo] = useState('mes_atual')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tentandoConectar, setTentandoConectar] = useState(false)
@@ -273,7 +278,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Nota Média da Equipe */}
+          {/* Nota Média dos Alunos */}
           <div style={{
             background: 'linear-gradient(135deg, #1f2937, #111827)',
             borderRadius: '16px',
@@ -289,22 +294,23 @@ export default function Dashboard() {
               fontWeight: '500',
               margin: '0 0 0.5rem 0'
             }}>
-              Nota Média da Equipe
+              Nota Média dos Alunos
             </h3>
             <div style={{
               fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
-              color: '#fbbf24',
+              color: metrics.notaMediaAlunos <= 5 ? '#10b981' : 
+                     metrics.notaMediaAlunos <= 10 ? '#fbbf24' : '#ef4444', // Verde se baixa, vermelho se alta
               margin: '0.25rem 0',
               lineHeight: 1
             }}>
-              {metrics.notaMediaEquipe}
+              {metrics.notaMediaAlunos}
             </div>
             <div style={{
               fontSize: '0.75rem',
               color: '#6b7280'
             }}>
-              Avaliação dos terapeutas
+              Estabilidade média (0=estável, 20=crítico)
             </div>
           </div>
 

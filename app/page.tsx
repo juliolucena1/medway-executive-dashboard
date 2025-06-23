@@ -1,48 +1,92 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // Dados que sabemos que existem (valores corrigidos)
 const DADOS_REAIS = {
   totalAtendimentos: 1714,
   alunosUnicos: 625,
-  notaMediaAlunos: 8.4, // 🔄 MUDOU: agora é nota dos alunos (0-20, menor é melhor)
+  notaMediaAlunos: 8.4,
   terapeutasAtivos: 8
 }
 
 export default function Dashboard() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // 🔧 CORREÇÃO 1: Estado sincronizado com URL
+  const [periodo, setPeriodo] = useState(() => {
+    return searchParams.get('periodo') || 'mes_atual'
+  })
+  
   const [metrics, setMetrics] = useState({
     totalAtendimentos: DADOS_REAIS.totalAtendimentos,
     alunosUnicos: DADOS_REAIS.alunosUnicos,
-    notaMediaAlunos: DADOS_REAIS.notaMediaAlunos, // 🔄 MUDOU
+    notaMediaAlunos: DADOS_REAIS.notaMediaAlunos,
     terapeutasAtivos: DADOS_REAIS.terapeutasAtivos
   })
-  const [periodo, setPeriodo] = useState('mes_atual')
+  
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tentandoConectar, setTentandoConectar] = useState(false)
+  const [dataUltimaAtualizacao, setDataUltimaAtualizacao] = useState<Date>(new Date())
 
-  // Tentar carregar dados reais do Supabase
-  const carregarDadosReais = async () => {
+  // 🔧 CORREÇÃO 2: Função que realmente recarrega dados conforme período
+  const carregarDadosReais = async (novoPeriodo?: string) => {
+    const periodoParaUsar = novoPeriodo || periodo
+    
     try {
       setTentandoConectar(true)
       setLoading(true)
-      
-      const { getDashboardMetrics } = await import('@/utils/dashboardAnalytics')
-      const dadosSupabase = await getDashboardMetrics(periodo)
-      
-      setMetrics(dadosSupabase)
       setError(null)
       
-    } catch (err) {
-      console.error('Erro ao carregar do Supabase:', err)
-      setError('Usando dados locais - Clique em Debug para mais info')
+      console.log('🔄 Carregando dados para período:', periodoParaUsar)
+      
+      const { getDashboardMetrics } = await import('@/utils/dashboardAnalytics')
+      const dadosSupabase = await getDashboardMetrics(periodoParaUsar)
+      
+      console.log('✅ Dados carregados:', dadosSupabase)
+      setMetrics(dadosSupabase)
+      setDataUltimaAtualizacao(new Date())
+      setError(null)
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao carregar do Supabase:', err)
+      setError(`Erro: ${err.message || 'Conexão falhou'} - Usando dados locais`)
       // Manter os dados reais como fallback
     } finally {
       setLoading(false)
       setTentandoConectar(false)
     }
   }
+
+  // 🔧 CORREÇÃO 3: Função que muda período E atualiza URL
+  const mudarPeriodo = async (novoPeriodo: string) => {
+    setPeriodo(novoPeriodo)
+    
+    // Atualizar URL para manter estado
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    newSearchParams.set('periodo', novoPeriodo)
+    router.push(`?${newSearchParams.toString()}`)
+    
+    // Tentar carregar dados reais para o novo período
+    await carregarDadosReais(novoPeriodo)
+  }
+
+  // 🔧 CORREÇÃO 4: useEffect que reage a mudanças de período na URL
+  useEffect(() => {
+    const periodoURL = searchParams.get('periodo')
+    if (periodoURL && periodoURL !== periodo) {
+      setPeriodo(periodoURL)
+      carregarDadosReais(periodoURL)
+    }
+  }, [searchParams])
+
+  // 🔧 CORREÇÃO 5: Carregar dados iniciais apenas uma vez
+  useEffect(() => {
+    carregarDadosReais()
+  }, []) // Só roda uma vez
 
   const periodos = [
     { valor: 'mes_atual', label: 'Mês Atual' },
@@ -118,31 +162,40 @@ export default function Dashboard() {
           alignItems: 'center',
           justifyContent: 'flex-start'
         }}>
-          {/* Seletores de Período */}
+          {/* 🔧 CORREÇÃO 6: Seletores de Período com feedback visual */}
           {periodos.map((p) => (
             <button
               key={p.valor}
-              onClick={() => setPeriodo(p.valor)}
+              onClick={() => mudarPeriodo(p.valor)}
+              disabled={loading}
               style={{
                 padding: '0.75rem 1.25rem',
                 borderRadius: '12px',
                 fontWeight: '500',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s',
                 backgroundColor: periodo === p.valor ? '#7c3aed' : '#374151',
                 color: periodo === p.valor ? 'white' : '#d1d5db',
                 fontSize: '0.875rem',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                opacity: loading ? 0.6 : 1,
+                position: 'relative'
               }}
             >
+              {loading && periodo === p.valor && (
+                <span style={{ 
+                  marginRight: '0.5rem',
+                  animation: 'spin 1s linear infinite' 
+                }}>⏳</span>
+              )}
               {p.label}
             </button>
           ))}
           
           {/* Botão Conectar Supabase */}
           <button
-            onClick={carregarDadosReais}
+            onClick={() => carregarDadosReais()}
             disabled={loading}
             style={{
               padding: '0.75rem 1.25rem',
@@ -162,12 +215,12 @@ export default function Dashboard() {
             <span style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}>
               {loading ? '⏳' : '🔄'}
             </span>
-            {loading ? 'Conectando...' : 'Conectar Supabase'}
+            {loading ? 'Conectando...' : 'Atualizar Dados'}
           </button>
 
           {/* Link Debug */}
           <a
-            href="/debug"
+            href={`/debug?periodo=${periodo}`}
             style={{
               padding: '0.75rem 1.25rem',
               backgroundColor: '#d97706',
@@ -185,7 +238,7 @@ export default function Dashboard() {
           </a>
         </div>
 
-        {/* Status */}
+        {/* 🔧 CORREÇÃO 7: Status melhorado com mais informações */}
         {error && (
           <div style={{
             backgroundColor: 'rgba(217, 119, 6, 0.2)',
@@ -196,6 +249,21 @@ export default function Dashboard() {
             color: '#fcd34d'
           }}>
             ⚠️ {error}
+            <button 
+              onClick={() => carregarDadosReais()}
+              style={{
+                marginLeft: '1rem',
+                padding: '0.25rem 0.5rem',
+                backgroundColor: '#d97706',
+                border: 'none',
+                borderRadius: '6px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '0.75rem'
+              }}
+            >
+              Tentar Novamente
+            </button>
           </div>
         )}
 
@@ -216,8 +284,17 @@ export default function Dashboard() {
             border: '1px solid #374151',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             width: '100%',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            position: 'relative'
           }}>
+            {loading && (
+              <div style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                animation: 'spin 1s linear infinite'
+              }}>⏳</div>
+            )}
             <h3 style={{
               color: '#d1d5db',
               fontSize: '0.875rem',
@@ -278,7 +355,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Nota Média dos Alunos */}
+          {/* 🔧 CORREÇÃO 8: Nota Média com tooltip explicativo */}
           <div style={{
             background: 'linear-gradient(135deg, #1f2937, #111827)',
             borderRadius: '16px',
@@ -292,15 +369,32 @@ export default function Dashboard() {
               color: '#d1d5db',
               fontSize: '0.875rem',
               fontWeight: '500',
-              margin: '0 0 0.5rem 0'
+              margin: '0 0 0.5rem 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
             }}>
               Nota Média dos Alunos
+              <span 
+                title="0 = Alunos muito estáveis ✅ | 20 = Alunos em situação crítica ❌"
+                style={{
+                  cursor: 'help',
+                  backgroundColor: '#374151',
+                  borderRadius: '50%',
+                  width: '16px',
+                  height: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem'
+                }}
+              >?</span>
             </h3>
             <div style={{
               fontSize: 'clamp(2rem, 5vw, 2.5rem)',
               fontWeight: 'bold',
               color: metrics.notaMediaAlunos <= 5 ? '#10b981' : 
-                     metrics.notaMediaAlunos <= 10 ? '#fbbf24' : '#ef4444', // Verde se baixa, vermelho se alta
+                     metrics.notaMediaAlunos <= 10 ? '#fbbf24' : '#ef4444',
               margin: '0.25rem 0',
               lineHeight: 1
             }}>
@@ -377,8 +471,9 @@ export default function Dashboard() {
             }}>
               👥 Análise Individual dos Terapeutas
             </h2>
+            {/* 🔧 CORREÇÃO 9: Link mantém período na URL */}
             <a 
-              href="/executive"
+              href={`/executive?periodo=${periodo}`}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: '#7c3aed',
@@ -401,7 +496,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Status da Conexão */}
+        {/* 🔧 CORREÇÃO 10: Status da Conexão melhorado */}
         <div style={{
           marginTop: '2rem',
           textAlign: 'center',
@@ -409,9 +504,9 @@ export default function Dashboard() {
           color: '#6b7280'
         }}>
           <p style={{ margin: 0 }}>
-            {tentandoConectar ? '🔄 Tentando conectar...' :
-             error ? '⚠️ Dados locais - Tente "Conectar Supabase"' :
-             '✅ Dashboard com dados atualizados'}
+            {tentandoConectar ? '🔄 Conectando com Supabase...' :
+             error ? '⚠️ Modo offline - dados locais' :
+             '✅ Dashboard conectado - dados atualizados'}
           </p>
           <p style={{ margin: '0.25rem 0' }}>
             Período selecionado: <span style={{ color: '#c084fc', fontWeight: '500' }}>
@@ -419,7 +514,7 @@ export default function Dashboard() {
             </span>
           </p>
           <p style={{ margin: '0.25rem 0' }}>
-            Última atualização: {new Date().toLocaleString('pt-BR')}
+            Última atualização: {dataUltimaAtualizacao.toLocaleString('pt-BR')}
           </p>
         </div>
 
